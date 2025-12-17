@@ -4,6 +4,8 @@ const Task = require('./Task');
 const Checklist = require('./Checklist');
 const TaskAssignment = require('./TaskAssignment');
 const Attachment = require('./Attachment');
+const Team = require('./Team');
+const TeamMember = require('./TeamMember');
 
 // Định nghĩa các quan hệ
 Task.belongsTo(User, { foreignKey: 'createdBy', as: 'creator' });
@@ -28,6 +30,23 @@ User.belongsToMany(Task, {
 Task.hasMany(Attachment, { foreignKey: 'taskId', as: 'attachments', onDelete: 'CASCADE' });
 Attachment.belongsTo(Task, { foreignKey: 'taskId', as: 'task' });
 
+// Team relationships
+Team.belongsTo(User, { foreignKey: 'createdBy', as: 'creator' });
+User.hasMany(Team, { foreignKey: 'createdBy', as: 'createdTeams' });
+
+Team.belongsToMany(User, {
+  through: TeamMember,
+  foreignKey: 'teamId',
+  otherKey: 'userId',
+  as: 'members',
+});
+User.belongsToMany(Team, {
+  through: TeamMember,
+  foreignKey: 'userId',
+  otherKey: 'teamId',
+  as: 'teams',
+});
+
 module.exports = {
   sequelize,
   User,
@@ -35,5 +54,7 @@ module.exports = {
   Checklist,
   TaskAssignment,
   Attachment,
+  Team,
+  TeamMember,
 };
 

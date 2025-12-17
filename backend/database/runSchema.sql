@@ -57,6 +57,26 @@ CREATE TABLE IF NOT EXISTS attachments (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+-- Bảng teams
+CREATE TABLE IF NOT EXISTS teams (
+    id SERIAL PRIMARY KEY,
+    name VARCHAR(255) NOT NULL,
+    description TEXT,
+    created_by INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Bảng team_members (many-to-many giữa teams và users)
+CREATE TABLE IF NOT EXISTS team_members (
+    id SERIAL PRIMARY KEY,
+    team_id INTEGER NOT NULL REFERENCES teams(id) ON DELETE CASCADE,
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(team_id, user_id)
+);
+
 -- Tạo indexes để tăng hiệu suất
 CREATE INDEX IF NOT EXISTS idx_tasks_created_by ON tasks(created_by);
 CREATE INDEX IF NOT EXISTS idx_tasks_status ON tasks(status);
@@ -65,6 +85,9 @@ CREATE INDEX IF NOT EXISTS idx_checklists_task_id ON checklists(task_id);
 CREATE INDEX IF NOT EXISTS idx_task_assignments_task_id ON task_assignments(task_id);
 CREATE INDEX IF NOT EXISTS idx_task_assignments_user_id ON task_assignments(user_id);
 CREATE INDEX IF NOT EXISTS idx_attachments_task_id ON attachments(task_id);
+CREATE INDEX IF NOT EXISTS idx_teams_created_by ON teams(created_by);
+CREATE INDEX IF NOT EXISTS idx_team_members_team_id ON team_members(team_id);
+CREATE INDEX IF NOT EXISTS idx_team_members_user_id ON team_members(user_id);
 
 -- Tạo trigger function để tự động cập nhật updated_at
 CREATE OR REPLACE FUNCTION update_updated_at_column()
@@ -94,6 +117,14 @@ CREATE TRIGGER update_task_assignments_updated_at BEFORE UPDATE ON task_assignme
 
 DROP TRIGGER IF EXISTS update_attachments_updated_at ON attachments;
 CREATE TRIGGER update_attachments_updated_at BEFORE UPDATE ON attachments
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+DROP TRIGGER IF EXISTS update_teams_updated_at ON teams;
+CREATE TRIGGER update_teams_updated_at BEFORE UPDATE ON teams
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+DROP TRIGGER IF EXISTS update_team_members_updated_at ON team_members;
+CREATE TRIGGER update_team_members_updated_at BEFORE UPDATE ON team_members
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
 -- Xong! Kiểm tra kết quả

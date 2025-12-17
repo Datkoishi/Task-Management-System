@@ -20,6 +20,7 @@ app.use((req, res, next) => {
 app.use('/api/auth', require('./routes/authRoutes'));
 app.use('/api/tasks', require('./routes/taskRoutes'));
 app.use('/api/admin', require('./routes/adminRoutes'));
+app.use('/api/teams', require('./routes/teamRoutes'));
 
 // Test route
 app.get('/', (req, res) => {

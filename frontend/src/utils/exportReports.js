@@ -70,7 +70,7 @@ export const exportToPDF = async (tasks, filename = 'tasks_report') => {
   printWindow.document.write(`
     <html>
       <head>
-        <title>Báo cáo nhiệm vụ</title>
+        <title>Task Report</title>
         <style>
           table { border-collapse: collapse; width: 100%; }
           th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
@@ -78,7 +78,7 @@ export const exportToPDF = async (tasks, filename = 'tasks_report') => {
         </style>
       </head>
       <body>
-        <h1>Báo cáo nhiệm vụ</h1>
+        <h1>Task Report</h1>
         ${tableContent}
       </body>
     </html>

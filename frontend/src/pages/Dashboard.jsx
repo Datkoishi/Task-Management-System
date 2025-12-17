@@ -1,13 +1,16 @@
 import React, { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import api from '../utils/api';
 import { format } from 'date-fns';
+import { useAuth } from '../context/AuthContext';
 
 const Dashboard = () => {
   const [stats, setStats] = useState(null);
   const [recentTasks, setRecentTasks] = useState([]);
   const [loading, setLoading] = useState(true);
+  const { user } = useAuth();
+  const navigate = useNavigate();
 
   useEffect(() => {
     fetchData();
@@ -21,7 +24,7 @@ const Dashboard = () => {
       ]);
       setStats(statsRes.data);
       
-      // Lấy 5 tasks gần nhất (chưa hoàn thành)
+      // Lấy 5 tasks gần nhất
       const allTasks = tasksRes.data.filter(
         (task) => task.status === 'todo' || task.status === 'in_progress'
       );
@@ -37,23 +40,22 @@ const Dashboard = () => {
 
   const chartData = stats
     ? [
-        { name: 'Chưa bắt đầu', value: stats.todo, color: '#3B82F6' },
-        { name: 'Đang làm', value: stats.inProgress, color: '#F59E0B' },
-        { name: 'Hoàn thành', value: stats.completed, color: '#10B981' },
-        { name: 'Quá hạn', value: stats.overdue, color: '#EF4444' },
-      ]
-    : [];
-
-  const priorityData = stats
-    ? [
-        { name: 'Thấp', value: 0 },
-        { name: 'Trung bình', value: 0 },
-        { name: 'Cao', value: 0 },
+        { name: 'Not Started', value: stats.todo, color: '#3B82F6' },
+        { name: 'In Progress', value: stats.inProgress, color: '#F59E0B' },
+        { name: 'Completed', value: stats.completed, color: '#10B981' },
+        { name: 'Overdue', value: stats.overdue, color: '#EF4444' },
       ]
     : [];
 
   if (loading) {
-    return <div className="text-center py-12">Đang tải dữ liệu...</div>;
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading data...</p>
+        </div>
+      </div>
+    );
   }
 
   const getStatusColor = (status) => {
@@ -72,230 +74,323 @@ const Dashboard = () => {
   const getStatusText = (status) => {
     switch (status) {
       case 'completed':
-        return 'Hoàn thành';
+        return 'Completed';
       case 'in_progress':
-        return 'Đang làm';
+        return 'In Progress';
       case 'todo':
-        return 'Chưa bắt đầu';
+        return 'Not Started';
       default:
         return status;
-    }
-  };
-
-  const getPriorityColor = (priority) => {
-    switch (priority) {
-      case 'high':
-        return 'text-red-600';
-      case 'medium':
-        return 'text-yellow-600';
-      case 'low':
-        return 'text-green-600';
-      default:
-        return 'text-gray-600';
     }
   };
 
   const getPriorityText = (priority) => {
     switch (priority) {
       case 'high':
-        return 'Cao';
+        return 'High';
       case 'medium':
-        return 'Trung bình';
+        return 'Medium';
       case 'low':
-        return 'Thấp';
+        return 'Low';
       default:
         return priority;
     }
   };
 
+  const pendingTasks = stats?.todo || 0;
+  const hasPendingTasks = pendingTasks > 0;
+
   return (
-    <div className="px-4 py-6 sm:px-0">
-      <h1 className="text-3xl font-bold text-gray-900 mb-6">Bảng điều khiển</h1>
-
-      {/* Stats Cards */}
-      <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4 mb-8">
-        <div className="bg-white overflow-hidden shadow rounded-lg">
-          <div className="p-5">
-            <div className="flex items-center">
-              <div className="flex-shrink-0">
-                <div className="w-8 h-8 bg-blue-500 rounded-md flex items-center justify-center">
-                  <span className="text-white font-bold">{stats?.total || 0}</span>
-                </div>
-              </div>
-              <div className="ml-5 w-0 flex-1">
-                <dl>
-                  <dt className="text-sm font-medium text-gray-500 truncate">Tổng nhiệm vụ</dt>
-                  <dd className="text-lg font-medium text-gray-900">{stats?.total || 0}</dd>
-                </dl>
-              </div>
-            </div>
+    <div className="space-y-6">
+      {/* Welcome Banner */}
+      <div className="bg-gradient-to-r from-purple-600 to-blue-600 rounded-xl p-8 text-white shadow-lg">
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center">
+          <div className="mb-4 md:mb-0">
+            <h1 className="text-3xl font-bold mb-2">
+              👋 Welcome back, {user?.name}!
+            </h1>
+            <p className="text-purple-100 text-lg">
+              {hasPendingTasks 
+                ? `You have ${pendingTasks} tasks to complete today`
+                : 'Great! You have no pending tasks'}
+            </p>
           </div>
-        </div>
-
-        <div className="bg-white overflow-hidden shadow rounded-lg">
-          <div className="p-5">
-            <div className="flex items-center">
-              <div className="flex-shrink-0">
-                <div className="w-8 h-8 bg-yellow-500 rounded-md flex items-center justify-center">
-                  <span className="text-white font-bold">{stats?.inProgress || 0}</span>
-                </div>
-              </div>
-              <div className="ml-5 w-0 flex-1">
-                <dl>
-                  <dt className="text-sm font-medium text-gray-500 truncate">Đang làm</dt>
-                  <dd className="text-lg font-medium text-gray-900">{stats?.inProgress || 0}</dd>
-                </dl>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-white overflow-hidden shadow rounded-lg">
-          <div className="p-5">
-            <div className="flex items-center">
-              <div className="flex-shrink-0">
-                <div className="w-8 h-8 bg-green-500 rounded-md flex items-center justify-center">
-                  <span className="text-white font-bold">{stats?.completed || 0}</span>
-                </div>
-              </div>
-              <div className="ml-5 w-0 flex-1">
-                <dl>
-                  <dt className="text-sm font-medium text-gray-500 truncate">Hoàn thành</dt>
-                  <dd className="text-lg font-medium text-gray-900">{stats?.completed || 0}</dd>
-                </dl>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-white overflow-hidden shadow rounded-lg">
-          <div className="p-5">
-            <div className="flex items-center">
-              <div className="flex-shrink-0">
-                <div className="w-8 h-8 bg-red-500 rounded-md flex items-center justify-center">
-                  <span className="text-white font-bold">{stats?.overdue || 0}</span>
-                </div>
-              </div>
-              <div className="ml-5 w-0 flex-1">
-                <dl>
-                  <dt className="text-sm font-medium text-gray-500 truncate">Quá hạn</dt>
-                  <dd className="text-lg font-medium text-gray-900">{stats?.overdue || 0}</dd>
-                </dl>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Charts */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-        <div className="bg-white shadow rounded-lg p-6">
-          <h2 className="text-xl font-semibold mb-4">Thống kê trạng thái</h2>
-          <ResponsiveContainer width="100%" height={300}>
-            <PieChart>
-              <Pie
-                data={chartData}
-                cx="50%"
-                cy="50%"
-                labelLine={false}
-                label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
-                outerRadius={80}
-                fill="#8884d8"
-                dataKey="value"
+          <div className="flex space-x-3">
+            {user?.role === 'admin' && (
+              <Link
+                to="/tasks/new"
+                className="bg-white text-purple-600 px-6 py-3 rounded-lg font-semibold hover:bg-purple-50 transition-colors flex items-center space-x-2"
               >
-                {chartData.map((entry, index) => (
-                  <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                ))}
-              </Pie>
-              <Tooltip />
-            </PieChart>
-          </ResponsiveContainer>
-        </div>
-
-        <div className="bg-white shadow rounded-lg p-6">
-          <h2 className="text-xl font-semibold mb-4">Biểu đồ cột</h2>
-          <ResponsiveContainer width="100%" height={300}>
-            <BarChart data={chartData}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="name" />
-              <YAxis />
-              <Tooltip />
-              <Legend />
-              <Bar dataKey="value" fill="#3B82F6" />
-            </BarChart>
-          </ResponsiveContainer>
+                <span>+</span>
+                <span>Create New Task</span>
+              </Link>
+            )}
+            {hasPendingTasks && (
+              <Link
+                to="/tasks"
+                className="bg-purple-500 text-white px-6 py-3 rounded-lg font-semibold hover:bg-purple-400 transition-colors flex items-center space-x-2"
+              >
+                <span>✏️</span>
+                <span>View Tasks</span>
+              </Link>
+            )}
+          </div>
         </div>
       </div>
 
-      {/* Recent Tasks */}
-      <div className="bg-white shadow rounded-lg">
-        <div className="px-6 py-4 border-b border-gray-200 flex justify-between items-center">
-          <h2 className="text-xl font-semibold">Nhiệm vụ gần đây</h2>
-          <Link
-            to="/tasks"
-            className="text-blue-600 hover:text-blue-800 text-sm font-medium"
-          >
-            Xem tất cả →
-          </Link>
+      {/* Summary Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        {/* Tổng nhiệm vụ */}
+        <div className="bg-white rounded-xl shadow-md p-6 border-l-4 border-blue-500">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-gray-600 mb-1">Total Tasks</p>
+              <p className="text-3xl font-bold text-gray-900">{stats?.total || 0}</p>
+            </div>
+            <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
+              <span className="text-2xl">📋</span>
+            </div>
+          </div>
         </div>
-        <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Tiêu đề
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Trạng thái
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Ưu tiên
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Hạn chót
-                </th>
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
+
+        {/* Đang làm */}
+        <div className="bg-white rounded-xl shadow-md p-6 border-l-4 border-yellow-500">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-gray-600 mb-1">In Progress</p>
+              <p className="text-3xl font-bold text-gray-900">{stats?.inProgress || 0}</p>
+              <p className="text-xs text-green-600 mt-1">Active</p>
+            </div>
+            <div className="w-12 h-12 bg-yellow-100 rounded-lg flex items-center justify-center">
+              <span className="text-2xl">⏳</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Hoàn thành */}
+        <div className="bg-white rounded-xl shadow-md p-6 border-l-4 border-green-500">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-gray-600 mb-1">Completed</p>
+              <p className="text-3xl font-bold text-gray-900">{stats?.completed || 0}</p>
+            </div>
+            <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
+              <span className="text-2xl">✅</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Quá hạn */}
+        <div className="bg-white rounded-xl shadow-md p-6 border-l-4 border-red-500">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-gray-600 mb-1">Overdue</p>
+              <p className="text-3xl font-bold text-gray-900">{stats?.overdue || 0}</p>
+              <p className="text-xs text-orange-600 mt-1">
+                {stats?.overdue > 0 ? 'Action Required' : 'None'}
+              </p>
+            </div>
+            <div className="w-12 h-12 bg-red-100 rounded-lg flex items-center justify-center">
+              <span className="text-2xl">⚠️</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Main Content - 2 columns */}
+        <div className="lg:col-span-2 space-y-6">
+          {/* Charts */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="bg-white rounded-xl shadow-md p-6">
+              <h3 className="text-lg font-semibold text-gray-900 mb-4">Status Statistics</h3>
+              <ResponsiveContainer width="100%" height={250}>
+                <PieChart>
+                  <Pie
+                    data={chartData}
+                    cx="50%"
+                    cy="50%"
+                    labelLine={false}
+                    label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
+                    outerRadius={70}
+                    fill="#8884d8"
+                    dataKey="value"
+                  >
+                    {chartData.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                    ))}
+                  </Pie>
+                  <Tooltip />
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
+
+            <div className="bg-white rounded-xl shadow-md p-6">
+              <h3 className="text-lg font-semibold text-gray-900 mb-4">Bar Chart</h3>
+              <ResponsiveContainer width="100%" height={250}>
+                <BarChart data={chartData}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="name" />
+                  <YAxis />
+                  <Tooltip />
+                  <Bar dataKey="value" fill="#3B82F6" radius={[8, 8, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+
+          {/* Recent Tasks */}
+          <div className="bg-white rounded-xl shadow-md">
+            <div className="px-6 py-4 border-b border-gray-200 flex justify-between items-center">
+              <h3 className="text-lg font-semibold text-gray-900">Recent Tasks</h3>
+              {user?.role === 'admin' && (
+                <Link
+                  to="/tasks/new"
+                  className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors flex items-center space-x-1"
+                >
+                  <span>+</span>
+                  <span>Create New</span>
+                </Link>
+              )}
+            </div>
+            <div className="divide-y divide-gray-200">
               {recentTasks.length === 0 ? (
-                <tr>
-                  <td colSpan="4" className="px-6 py-4 text-center text-gray-500">
-                    Chưa có nhiệm vụ nào
-                  </td>
-                </tr>
+                <div className="px-6 py-12 text-center text-gray-500">
+                  <p className="text-lg mb-2">No tasks yet</p>
+                  {user?.role === 'admin' && (
+                    <Link
+                      to="/tasks/new"
+                      className="text-blue-600 hover:text-blue-800 font-medium"
+                    >
+                      Create your first task →
+                    </Link>
+                  )}
+                </div>
               ) : (
                 recentTasks.map((task) => (
-                  <tr key={task.id} className="hover:bg-gray-50">
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <Link
-                        to={`/tasks/${task.id}`}
-                        className="text-sm font-medium text-gray-900 hover:text-blue-600"
-                      >
-                        {task.title}
-                      </Link>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span
-                        className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusColor(
-                          task.status
-                        )}`}
-                      >
-                        {getStatusText(task.status)}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm">
-                      <span className={getPriorityColor(task.priority)}>
-                        {getPriorityText(task.priority)}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {task.dueDate ? format(new Date(task.dueDate), 'dd/MM/yyyy') : '-'}
-                    </td>
-                  </tr>
+                  <Link
+                    key={task.id}
+                    to={`/tasks/${task.id}`}
+                    className="block px-6 py-4 hover:bg-gray-50 transition-colors"
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center space-x-4 flex-1">
+                        <div className={`w-2 h-2 rounded-full ${
+                          task.status === 'completed' ? 'bg-green-500' :
+                          task.status === 'in_progress' ? 'bg-yellow-500' :
+                          'bg-blue-500'
+                        }`}></div>
+                        <div className="flex-1">
+                          <h4 className="text-sm font-medium text-gray-900">{task.title}</h4>
+                          <div className="flex items-center space-x-4 mt-1">
+                            <span className={`text-xs px-2 py-1 rounded-full ${getStatusColor(task.status)}`}>
+                              {getStatusText(task.status)}
+                            </span>
+                            {task.assignedUsers && task.assignedUsers.length > 0 && (
+                              <span className="text-xs text-gray-500">
+                                {task.assignedUsers.length} assigned
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                      <div className="flex items-center space-x-4">
+                        {task.dueDate && (
+                          <span className="text-sm text-gray-500">
+                            {format(new Date(task.dueDate), 'dd/MM/yyyy')}
+                          </span>
+                        )}
+                        <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                        </svg>
+                      </div>
+                    </div>
+                  </Link>
                 ))
               )}
-            </tbody>
-          </table>
+            </div>
+            {recentTasks.length > 0 && (
+              <div className="px-6 py-4 border-t border-gray-200">
+                <Link
+                  to="/tasks"
+                  className="text-blue-600 hover:text-blue-800 text-sm font-medium flex items-center"
+                >
+                  View All Tasks
+                  <svg className="w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                  </svg>
+                </Link>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Right Sidebar - Quick Actions */}
+        <div className="space-y-6">
+          {/* Quick Actions */}
+          <div className="bg-white rounded-xl shadow-md p-6">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">Quick Actions</h3>
+            <div className="space-y-3">
+              {user?.role === 'admin' && (
+                <Link
+                  to="/tasks/new"
+                  className="block p-4 bg-blue-50 rounded-lg hover:bg-blue-100 transition-colors border border-blue-200"
+                >
+                  <div className="flex items-center">
+                    <div className="w-10 h-10 bg-blue-500 rounded-lg flex items-center justify-center mr-3">
+                      <span className="text-white text-xl">+</span>
+                    </div>
+                    <div>
+                      <p className="font-medium text-gray-900">Create New Task</p>
+                      <p className="text-xs text-gray-500">Add a new task to the system</p>
+                    </div>
+                  </div>
+                </Link>
+              )}
+
+              <Link
+                to="/tasks?status=in_progress"
+                className="block p-4 bg-orange-50 rounded-lg hover:bg-orange-100 transition-colors border border-orange-200"
+              >
+                <div className="flex items-center">
+                  <div className="w-10 h-10 bg-orange-500 rounded-lg flex items-center justify-center mr-3">
+                    <span className="text-white text-xl">✏️</span>
+                  </div>
+                  <div>
+                    <p className="font-medium text-gray-900">Tasks In Progress</p>
+                    <p className="text-xs text-gray-500">
+                      {stats?.inProgress || 0} tasks to process
+                    </p>
+                  </div>
+                </div>
+              </Link>
+
+              {user?.role === 'admin' && (
+                <Link
+                  to="/admin"
+                  className="block p-4 bg-purple-50 rounded-lg hover:bg-purple-100 transition-colors border border-purple-200"
+                >
+                  <div className="flex items-center">
+                    <div className="w-10 h-10 bg-purple-500 rounded-lg flex items-center justify-center mr-3">
+                      <span className="text-white text-xl">👥</span>
+                    </div>
+                    <div>
+                      <p className="font-medium text-gray-900">Manage Users</p>
+                      <p className="text-xs text-gray-500">View and manage users</p>
+                    </div>
+                  </div>
+                </Link>
+              )}
+            </div>
+          </div>
+
+          {/* Activity (Placeholder) */}
+          <div className="bg-white rounded-xl shadow-md p-6">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">Recent Activity</h3>
+            <div className="text-center py-8 text-gray-500 text-sm">
+              No activity yet
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -303,4 +398,3 @@ const Dashboard = () => {
 };
 
 export default Dashboard;
-

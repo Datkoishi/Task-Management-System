@@ -20,7 +20,7 @@ const Register = () => {
       await register(name, email, password);
       navigate('/dashboard');
     } catch (err) {
-      setError(err.response?.data?.message || 'Đăng ký thất bại');
+      setError(err.response?.data?.message || 'Registration failed');
     } finally {
       setLoading(false);
     }
@@ -31,12 +31,12 @@ const Register = () => {
       <div className="max-w-md w-full space-y-8">
         <div>
           <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
-            Đăng ký tài khoản mới
+            Create a new account
           </h2>
           <p className="mt-2 text-center text-sm text-gray-600">
-            Đã có tài khoản?{' '}
+            Already have an account?{' '}
             <Link to="/login" className="font-medium text-blue-600 hover:text-blue-500">
-              Đăng nhập
+              Sign in
             </Link>
           </p>
         </div>
@@ -49,7 +49,7 @@ const Register = () => {
           <div className="rounded-md shadow-sm space-y-4">
             <div>
               <label htmlFor="name" className="sr-only">
-                Tên
+                Name
               </label>
               <input
                 id="name"
@@ -57,7 +57,7 @@ const Register = () => {
                 type="text"
                 required
                 className="appearance-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm"
-                placeholder="Họ và tên"
+                placeholder="Full name"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
               />
@@ -73,14 +73,14 @@ const Register = () => {
                 autoComplete="email"
                 required
                 className="appearance-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm"
-                placeholder="Địa chỉ email"
+                placeholder="Email address"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
               />
             </div>
             <div>
               <label htmlFor="password" className="sr-only">
-                Mật khẩu
+                Password
               </label>
               <input
                 id="password"
@@ -89,7 +89,7 @@ const Register = () => {
                 autoComplete="new-password"
                 required
                 className="appearance-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm"
-                placeholder="Mật khẩu (tối thiểu 6 ký tự)"
+                placeholder="Password (minimum 6 characters)"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 minLength={6}
@@ -103,7 +103,7 @@ const Register = () => {
               disabled={loading}
               className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
             >
-              {loading ? 'Đang đăng ký...' : 'Đăng ký'}
+              {loading ? 'Registering...' : 'Register'}
             </button>
           </div>
         </form>

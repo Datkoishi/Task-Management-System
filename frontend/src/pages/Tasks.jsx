@@ -3,8 +3,10 @@ import { Link } from 'react-router-dom';
 import api from '../utils/api';
 import { format } from 'date-fns';
 import { exportToCSV, exportToExcel, exportToPDF } from '../utils/exportReports';
+import { useAuth } from '../context/AuthContext';
 
 const Tasks = () => {
+  const { user } = useAuth();
   const [tasks, setTasks] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filters, setFilters] = useState({ status: '', priority: '' });
@@ -29,13 +31,13 @@ const Tasks = () => {
   };
 
   const handleDelete = async (id) => {
-    if (!window.confirm('Bạn có chắc chắn muốn xóa nhiệm vụ này?')) return;
+    if (!window.confirm('Are you sure you want to delete this task?')) return;
 
     try {
       await api.delete(`/tasks/${id}`);
       fetchTasks();
     } catch (error) {
-      alert('Lỗi xóa nhiệm vụ: ' + (error.response?.data?.message || error.message));
+      alert('Error deleting task: ' + (error.response?.data?.message || error.message));
     }
   };
 
@@ -55,11 +57,11 @@ const Tasks = () => {
   const getStatusText = (status) => {
     switch (status) {
       case 'completed':
-        return 'Hoàn thành';
+        return 'Completed';
       case 'in_progress':
-        return 'Đang làm';
+        return 'In Progress';
       case 'todo':
-        return 'Chưa bắt đầu';
+        return 'Not Started';
       default:
         return status;
     }
@@ -81,83 +83,83 @@ const Tasks = () => {
   const getPriorityText = (priority) => {
     switch (priority) {
       case 'high':
-        return 'Cao';
+        return 'High';
       case 'medium':
-        return 'Trung bình';
+        return 'Medium';
       case 'low':
-        return 'Thấp';
+        return 'Low';
       default:
         return priority;
     }
   };
 
   if (loading) {
-    return <div className="text-center py-12">Đang tải...</div>;
+    return <div className="text-center py-12">Loading...</div>;
   }
 
   return (
-    <div className="px-4 py-6 sm:px-0">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
-        <h1 className="text-3xl font-bold text-gray-900">Quản lý nhiệm vụ</h1>
-        <div className="flex flex-wrap gap-2">
-          {tasks.length > 0 && (
-            <>
-              <button
-                onClick={() => exportToCSV(tasks)}
-                className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-md font-medium text-sm"
-              >
-                📥 Xuất CSV
-              </button>
-              <button
-                onClick={() => exportToExcel(tasks)}
-                className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-md font-medium text-sm"
-              >
-                📊 Xuất Excel
-              </button>
-              <button
-                onClick={() => exportToPDF(tasks)}
-                className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-md font-medium text-sm"
-              >
-                📄 Xuất PDF
-              </button>
-            </>
-          )}
+    <div className="space-y-6">
+      {/* Action Buttons */}
+      <div className="flex flex-wrap gap-2 justify-end">
+        {tasks.length > 0 && (
+          <>
+            <button
+              onClick={() => exportToCSV(tasks)}
+              className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg font-medium text-sm transition-colors"
+            >
+              📥 Export CSV
+            </button>
+            <button
+              onClick={() => exportToExcel(tasks)}
+              className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg font-medium text-sm transition-colors"
+            >
+              📊 Export Excel
+            </button>
+            <button
+              onClick={() => exportToPDF(tasks)}
+              className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg font-medium text-sm transition-colors"
+            >
+              📄 Export PDF
+            </button>
+          </>
+        )}
+        {user?.role === 'admin' && (
           <Link
             to="/tasks/new"
-            className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md font-medium text-sm"
+            className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium text-sm transition-colors inline-block"
           >
-            + Tạo nhiệm vụ mới
+            + Create New Task
           </Link>
-        </div>
+        )}
       </div>
 
       {/* Filters */}
-      <div className="bg-white shadow rounded-lg p-4 mb-6">
+      <div className="bg-white shadow-md rounded-xl p-4">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Lọc theo trạng thái</label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Filter by Status</label>
             <select
               value={filters.status}
               onChange={(e) => setFilters({ ...filters, status: e.target.value })}
               className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
             >
-              <option value="">Tất cả</option>
-              <option value="todo">Chưa bắt đầu</option>
-              <option value="in_progress">Đang làm</option>
-              <option value="completed">Hoàn thành</option>
+              <option value="">All</option>
+              <option value="todo">Not Started</option>
+              <option value="in_progress">In Progress</option>
+              <option value="completed">Completed</option>
             </select>
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Lọc theo ưu tiên</label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Filter by Priority</label>
             <select
               value={filters.priority}
               onChange={(e) => setFilters({ ...filters, priority: e.target.value })}
               className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
             >
-              <option value="">Tất cả</option>
-              <option value="high">Cao</option>
-              <option value="medium">Trung bình</option>
-              <option value="low">Thấp</option>
+              <option value="">All</option>
+              <option value="high">High</option>
+              <option value="medium">Medium</option>
+              <option value="low">Low</option>
             </select>
           </div>
           <div className="flex items-end">
@@ -165,35 +167,35 @@ const Tasks = () => {
               onClick={() => setFilters({ status: '', priority: '' })}
               className="w-full bg-gray-200 hover:bg-gray-300 text-gray-800 px-4 py-2 rounded-md font-medium"
             >
-              Xóa bộ lọc
+              Clear Filters
             </button>
           </div>
         </div>
       </div>
 
       {/* Tasks List */}
-      <div className="bg-white shadow rounded-lg overflow-hidden">
+      <div className="bg-white shadow-md rounded-xl overflow-hidden">
         <div className="overflow-x-auto">
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Tiêu đề
+                  TITLE
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Trạng thái
+                  STATUS
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Ưu tiên
+                  PRIORITY
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Hạn chót
+                  DUE DATE
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Người được giao
+                  ASSIGNED TO
                 </th>
                 <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Thao tác
+                  ACTIONS
                 </th>
               </tr>
             </thead>
@@ -201,26 +203,28 @@ const Tasks = () => {
               {tasks.length === 0 ? (
                 <tr>
                   <td colSpan="6" className="px-6 py-8 text-center text-gray-500">
-                    Chưa có nhiệm vụ nào
+                    No tasks yet
                   </td>
                 </tr>
               ) : (
                 tasks.map((task) => (
                   <tr key={task.id} className="hover:bg-gray-50">
                     <td className="px-6 py-4">
-                      <Link
-                        to={`/tasks/${task.id}`}
-                        className="text-sm font-medium text-gray-900 hover:text-blue-600"
-                      >
-                        {task.title}
-                      </Link>
-                      {task.description && (
-                        <p className="text-sm text-gray-500 mt-1 line-clamp-1">{task.description}</p>
-                      )}
+                      <div>
+                        <Link
+                          to={`/tasks/${task.id}`}
+                          className="text-sm font-medium text-gray-900 hover:text-blue-600 block"
+                        >
+                          {task.title}
+                        </Link>
+                        {task.description && (
+                          <p className="text-sm text-gray-500 mt-1 line-clamp-1">{task.description}</p>
+                        )}
+                      </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <span
-                        className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusColor(
+                        className={`px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusColor(
                           task.status
                         )}`}
                       >
@@ -228,11 +232,7 @@ const Tasks = () => {
                       </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <span
-                        className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full border ${getPriorityColor(
-                          task.priority
-                        )}`}
-                      >
+                      <span className="text-sm text-gray-900">
                         {getPriorityText(task.priority)}
                       </span>
                     </td>
@@ -245,18 +245,22 @@ const Tasks = () => {
                         : '-'}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                      <Link
-                        to={`/tasks/${task.id}`}
-                        className="text-blue-600 hover:text-blue-900 mr-4"
-                      >
-                        Xem
-                      </Link>
-                      <button
-                        onClick={() => handleDelete(task.id)}
-                        className="text-red-600 hover:text-red-900"
-                      >
-                        Xóa
-                      </button>
+                      <div className="flex items-center justify-end space-x-4">
+                        <Link
+                          to={`/tasks/${task.id}`}
+                          className="text-blue-600 hover:text-blue-800 font-medium"
+                        >
+                          View
+                        </Link>
+                        {user?.role === 'admin' && (
+                          <button
+                            onClick={() => handleDelete(task.id)}
+                            className="text-red-600 hover:text-red-800 font-medium"
+                          >
+                            Xóa
+                          </button>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 ))
