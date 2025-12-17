@@ -5,7 +5,15 @@
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "dev": "nodemon server.js"
+    "dev": "nodemon server.js",
+    "kill-port": "node scripts/killPort.js",
+    "dev-clean": "npm run kill-port && sleep 1 && npm run dev",
+    "init-db": "node scripts/initDatabase.js",
+    "auto-setup": "node scripts/autoSetup.js",
+    "create-admin": "node scripts/createAdmin.js",
+    "create-admin-direct": "node scripts/createAdminDirect.js",
+    "fix-permissions": "node scripts/fixPermissions.js",
+    "change-owner": "node scripts/changeOwnership.js"
   },
   "keywords": ["task", "management", "api"],
   "author": "",

@@ -45,21 +45,37 @@ cd backend
 npm install
 ```
 
-3. Tạo file `.env`:
+3. File `.env` đã được tạo sẵn với cấu hình:
 ```env
-PORT=5000
-DB_HOST=localhost
-DB_PORT=5432
-DB_NAME=task_management
-DB_USER=postgres
-DB_PASSWORD=your_password
-JWT_SECRET=your_jwt_secret_key_here
-JWT_EXPIRE=7d
+DB_USER=root
+DB_PASSWORD=18042005
 ```
 
-4. Đảm bảo PostgreSQL đã được cài đặt và chạy
+**Lưu ý:** Nếu PostgreSQL chưa có user `root`, bạn cần tạo:
+```sql
+-- Kết nối với user postgres
+psql -U postgres
 
-5. Chạy server:
+-- Tạo user root
+CREATE USER root WITH PASSWORD '18042005';
+ALTER USER root CREATEDB;
+```
+
+4. Tạo database:
+```bash
+npm run init-db
+```
+
+5. Tạo admin user:
+```bash
+npm run create-admin
+```
+
+Thông tin đăng nhập admin:
+- Email: `admin@example.com`
+- Password: `admin123`
+
+6. Chạy server:
 ```bash
 npm run dev
 ```

@@ -10,6 +10,12 @@ app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+// Logging middleware để debug
+app.use((req, res, next) => {
+  console.log(`${req.method} ${req.path}`);
+  next();
+});
+
 // Routes
 app.use('/api/auth', require('./routes/authRoutes'));
 app.use('/api/tasks', require('./routes/taskRoutes'));
@@ -27,7 +33,9 @@ sequelize
   .authenticate()
   .then(() => {
     console.log('Kết nối database thành công');
-    return sequelize.sync({ alter: true });
+    // Không dùng alter: true vì database đã được tạo sẵn từ schema.sql
+    // Chỉ sync để kiểm tra models, không thay đổi schema
+    return sequelize.sync({ alter: false });
   })
   .then(() => {
     console.log('Đồng bộ database thành công');
