@@ -2,6 +2,7 @@ const sequelize = require('../config/database');
 const User = require('./User');
 const Task = require('./Task');
 const Checklist = require('./Checklist');
+const ChecklistGroup = require('./ChecklistGroup');
 const TaskAssignment = require('./TaskAssignment');
 const Attachment = require('./Attachment');
 const Team = require('./Team');
@@ -11,8 +12,16 @@ const TeamMember = require('./TeamMember');
 Task.belongsTo(User, { foreignKey: 'createdBy', as: 'creator' });
 User.hasMany(Task, { foreignKey: 'createdBy', as: 'createdTasks' });
 
+Task.hasMany(ChecklistGroup, { foreignKey: 'taskId', as: 'checklistGroups', onDelete: 'CASCADE' });
+ChecklistGroup.belongsTo(Task, { foreignKey: 'taskId', as: 'task' });
+ChecklistGroup.belongsTo(User, { foreignKey: 'assignedTo', as: 'assignedUser' });
+User.hasMany(ChecklistGroup, { foreignKey: 'assignedTo', as: 'assignedChecklistGroups' });
+ChecklistGroup.hasMany(Checklist, { foreignKey: 'groupId', as: 'checklists', onDelete: 'CASCADE' });
+Checklist.belongsTo(ChecklistGroup, { foreignKey: 'groupId', as: 'group' });
 Task.hasMany(Checklist, { foreignKey: 'taskId', as: 'checklists', onDelete: 'CASCADE' });
 Checklist.belongsTo(Task, { foreignKey: 'taskId', as: 'task' });
+Checklist.belongsTo(User, { foreignKey: 'assignedTo', as: 'assignedUser' });
+User.hasMany(Checklist, { foreignKey: 'assignedTo', as: 'assignedChecklists' });
 
 Task.belongsToMany(User, {
   through: TaskAssignment,
@@ -52,6 +61,7 @@ module.exports = {
   User,
   Task,
   Checklist,
+  ChecklistGroup,
   TaskAssignment,
   Attachment,
   Team,

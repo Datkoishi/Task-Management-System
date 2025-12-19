@@ -32,12 +32,25 @@ CREATE TABLE IF NOT EXISTS tasks (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- Bảng checklists
-CREATE TABLE IF NOT EXISTS checklists (
+-- Bảng checklist_groups (checklist mẹ)
+CREATE TABLE IF NOT EXISTS checklist_groups (
     id SERIAL PRIMARY KEY,
     task_id INTEGER NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
     title VARCHAR(255) NOT NULL,
+    assigned_to INTEGER REFERENCES users(id) ON DELETE SET NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Bảng checklists (checklist con)
+CREATE TABLE IF NOT EXISTS checklists (
+    id SERIAL PRIMARY KEY,
+    task_id INTEGER NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
+    group_id INTEGER REFERENCES checklist_groups(id) ON DELETE CASCADE,
+    title VARCHAR(255) NOT NULL,
     is_completed BOOLEAN DEFAULT FALSE,
+    status VARCHAR(20) DEFAULT 'todo' CHECK (status IN ('todo', 'in_progress', 'completed')),
+    assigned_to INTEGER REFERENCES users(id) ON DELETE SET NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
@@ -65,7 +78,12 @@ CREATE TABLE IF NOT EXISTS attachments (
 CREATE INDEX IF NOT EXISTS idx_tasks_created_by ON tasks(created_by);
 CREATE INDEX IF NOT EXISTS idx_tasks_status ON tasks(status);
 CREATE INDEX IF NOT EXISTS idx_tasks_priority ON tasks(priority);
+CREATE INDEX IF NOT EXISTS idx_checklist_groups_task_id ON checklist_groups(task_id);
+CREATE INDEX IF NOT EXISTS idx_checklist_groups_assigned_to ON checklist_groups(assigned_to);
 CREATE INDEX IF NOT EXISTS idx_checklists_task_id ON checklists(task_id);
+CREATE INDEX IF NOT EXISTS idx_checklists_group_id ON checklists(group_id);
+CREATE INDEX IF NOT EXISTS idx_checklists_assigned_to ON checklists(assigned_to);
+CREATE INDEX IF NOT EXISTS idx_checklists_status ON checklists(status);
 CREATE INDEX IF NOT EXISTS idx_task_assignments_task_id ON task_assignments(task_id);
 CREATE INDEX IF NOT EXISTS idx_task_assignments_user_id ON task_assignments(user_id);
 CREATE INDEX IF NOT EXISTS idx_attachments_task_id ON attachments(task_id);
@@ -85,6 +103,9 @@ CREATE TRIGGER update_users_updated_at BEFORE UPDATE ON users
 CREATE TRIGGER update_tasks_updated_at BEFORE UPDATE ON tasks
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
+CREATE TRIGGER update_checklist_groups_updated_at BEFORE UPDATE ON checklist_groups
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
 CREATE TRIGGER update_checklists_updated_at BEFORE UPDATE ON checklists
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
@@ -93,4 +114,8 @@ CREATE TRIGGER update_task_assignments_updated_at BEFORE UPDATE ON task_assignme
 
 CREATE TRIGGER update_attachments_updated_at BEFORE UPDATE ON attachments
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+
+
+
 

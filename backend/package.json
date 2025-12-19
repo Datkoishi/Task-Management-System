@@ -13,7 +13,11 @@
     "dev-clean": "npm run kill-port 5000 && npm run dev",
     "fix-permissions": "node scripts/fixPermissions.js",
     "change-owner": "node scripts/changeOwnership.js",
-    "add-teams": "node scripts/addTeamsTables.js"
+    "add-teams": "node scripts/addTeamsTables.js",
+    "migrate-checklist-assigned": "node scripts/addChecklistAssignedTo.js",
+    "migrate-checklist-groups": "node scripts/addChecklistGroups.js",
+    "migrate-group-assigned": "node scripts/addGroupAssignedTo.js",
+    "migrate-checklist-status": "node scripts/addChecklistStatus.js"
   },
   "keywords": ["task", "management", "api"],
   "author": "",

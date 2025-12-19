@@ -18,3 +18,7 @@ ON CONFLICT (email) DO NOTHING;
 -- Lưu ý: Để tạo mật khẩu hash thực tế, bạn cần chạy script Node.js
 -- Hoặc đăng ký user mới thông qua API
 
+
+
+
+

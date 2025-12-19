@@ -38,3 +38,7 @@ CREATE TRIGGER update_team_members_updated_at BEFORE UPDATE ON team_members
 -- Xong!
 SELECT 'Teams tables created successfully!' as status;
 
+
+
+
+

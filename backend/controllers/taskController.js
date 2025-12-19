@@ -1,19 +1,43 @@
-const { Task, Checklist, TaskAssignment, Attachment, User } = require('../models');
+const { Task, Checklist, ChecklistGroup, TaskAssignment, Attachment, User, TeamMember } = require('../models');
 const { Op } = require('sequelize');
 
 // Hàm cập nhật trạng thái task dựa trên checklist
 const updateTaskStatus = async (taskId) => {
   const task = await Task.findByPk(taskId, {
-    include: [{ model: Checklist, as: 'checklists' }],
+    include: [
+      { model: Checklist, as: 'checklists' },
+      { 
+        model: ChecklistGroup, 
+        as: 'checklistGroups',
+        include: [{ model: Checklist, as: 'checklists' }]
+      }
+    ],
   });
 
+  let allChecklists = [];
+  
+  // Lấy checklists từ groups
+  if (task && task.checklistGroups && task.checklistGroups.length > 0) {
+    task.checklistGroups.forEach((group) => {
+      if (group.checklists && group.checklists.length > 0) {
+        allChecklists = allChecklists.concat(group.checklists);
+      }
+    });
+  }
+  
+  // Lấy checklists phẳng
   if (task && task.checklists && task.checklists.length > 0) {
-    const allCompleted = task.checklists.every((item) => item.isCompleted);
-    const hasInProgress = task.checklists.some((item) => item.isCompleted);
+    allChecklists = allChecklists.concat(task.checklists);
+  }
+
+  if (allChecklists.length > 0) {
+    const allCompleted = allChecklists.every((item) => item.status === 'completed' || item.isCompleted);
+    const hasInProgress = allChecklists.some((item) => item.status === 'in_progress');
+    const hasCompleted = allChecklists.some((item) => item.status === 'completed' || item.isCompleted);
 
     if (allCompleted) {
       await task.update({ status: 'completed' });
-    } else if (hasInProgress) {
+    } else if (hasInProgress || hasCompleted) {
       await task.update({ status: 'in_progress' });
     } else {
       await task.update({ status: 'todo' });
@@ -49,7 +73,11 @@ exports.getAllTasks = async (req, res) => {
       where,
       include: [
         { model: User, as: 'creator', attributes: ['id', 'name', 'email'] },
-        { model: Checklist, as: 'checklists' },
+        { 
+          model: Checklist, 
+          as: 'checklists',
+          include: [{ model: User, as: 'assignedUser', attributes: ['id', 'name', 'email'] }]
+        },
         { model: Attachment, as: 'attachments' },
         {
           model: User,
@@ -72,7 +100,25 @@ exports.getTaskById = async (req, res) => {
     const task = await Task.findByPk(req.params.id, {
       include: [
         { model: User, as: 'creator', attributes: ['id', 'name', 'email'] },
-        { model: Checklist, as: 'checklists' },
+        { 
+          model: ChecklistGroup, 
+          as: 'checklistGroups',
+          include: [
+            { model: User, as: 'assignedUser', attributes: ['id', 'name', 'email'] },
+            {
+              model: Checklist,
+              as: 'checklists',
+              include: [{ model: User, as: 'assignedUser', attributes: ['id', 'name', 'email'] }]
+            }
+          ]
+        },
+        { 
+          model: Checklist, 
+          as: 'checklists',
+          where: { groupId: null },
+          required: false,
+          include: [{ model: User, as: 'assignedUser', attributes: ['id', 'name', 'email'] }]
+        },
         { model: Attachment, as: 'attachments' },
         {
           model: User,
@@ -110,7 +156,7 @@ exports.createTask = async (req, res) => {
       return res.status(403).json({ message: 'Chỉ quản trị viên mới có thể tạo nhiệm vụ' });
     }
 
-    const { title, description, priority, status, startDate, dueDate, checklists, assignedUserIds, teamIds, attachments } = req.body;
+    const { title, description, priority, status, startDate, dueDate, checklists, checklistGroups, assignedUserIds, teamIds, attachments } = req.body;
 
     const task = await Task.create({
       title,
@@ -122,14 +168,45 @@ exports.createTask = async (req, res) => {
       createdBy: req.user.id,
     });
 
-    // Tạo checklists
-    if (checklists && checklists.length > 0) {
+    // Tạo checklist groups (cách mới)
+    if (checklistGroups && checklistGroups.length > 0) {
+      for (const group of checklistGroups) {
+        if (group.title && group.title.trim()) {
+          const checklistGroup = await ChecklistGroup.create({
+            taskId: task.id,
+            title: group.title,
+            assignedTo: group.assignedTo || null,
+          });
+
+          // Tạo checklist items trong group
+          if (group.items && group.items.length > 0) {
+            await Checklist.bulkCreate(
+              group.items
+                .filter((item) => item.title && item.title.trim())
+                .map((item) => ({
+                  taskId: task.id,
+                  groupId: checklistGroup.id,
+                  title: item.title,
+                  isCompleted: item.isCompleted || false,
+                  assignedTo: item.assignedTo || null,
+                }))
+            );
+          }
+        }
+      }
+    } else if (checklists && checklists.length > 0) {
+      // Backward compatible: tạo checklists phẳng (không có group)
       await Checklist.bulkCreate(
-        checklists.map((item) => ({
-          taskId: task.id,
-          title: item.title,
-          isCompleted: item.isCompleted || false,
-        }))
+        checklists
+          .filter((item) => item.title && item.title.trim())
+          .map((item) => ({
+            taskId: task.id,
+            title: item.title,
+            isCompleted: item.status === 'completed' || item.isCompleted || false,
+            status: item.status || 'todo',
+            assignedTo: item.assignedTo || null,
+            groupId: null,
+          }))
       );
     }
 
@@ -170,7 +247,25 @@ exports.createTask = async (req, res) => {
     const createdTask = await Task.findByPk(task.id, {
       include: [
         { model: User, as: 'creator', attributes: ['id', 'name', 'email'] },
-        { model: Checklist, as: 'checklists' },
+        { 
+          model: ChecklistGroup, 
+          as: 'checklistGroups',
+          include: [
+            { model: User, as: 'assignedUser', attributes: ['id', 'name', 'email'] },
+            {
+              model: Checklist,
+              as: 'checklists',
+              include: [{ model: User, as: 'assignedUser', attributes: ['id', 'name', 'email'] }]
+            }
+          ]
+        },
+        { 
+          model: Checklist, 
+          as: 'checklists',
+          where: { groupId: null },
+          required: false,
+          include: [{ model: User, as: 'assignedUser', attributes: ['id', 'name', 'email'] }]
+        },
         { model: Attachment, as: 'attachments' },
         {
           model: User,
@@ -214,17 +309,36 @@ exports.updateTask = async (req, res) => {
               taskId: task.id,
               title: item.title,
               isCompleted: item.isCompleted || false,
+              assignedTo: item.assignedTo || null,
             }))
           );
         }
         await updateTaskStatus(task.id);
       }
       // Lấy lại task sau khi update
-      const updatedTask = await Task.findByPk(task.id, {
-        include: [
-          { model: User, as: 'creator', attributes: ['id', 'name', 'email'] },
-          { model: Checklist, as: 'checklists' },
-          { model: Attachment, as: 'attachments' },
+    const updatedTask = await Task.findByPk(task.id, {
+      include: [
+        { model: User, as: 'creator', attributes: ['id', 'name', 'email'] },
+        { 
+          model: ChecklistGroup, 
+          as: 'checklistGroups',
+          include: [
+            { model: User, as: 'assignedUser', attributes: ['id', 'name', 'email'] },
+            {
+              model: Checklist,
+              as: 'checklists',
+              include: [{ model: User, as: 'assignedUser', attributes: ['id', 'name', 'email'] }]
+            }
+          ]
+        },
+        { 
+          model: Checklist, 
+          as: 'checklists',
+          where: { groupId: null },
+          required: false,
+          include: [{ model: User, as: 'assignedUser', attributes: ['id', 'name', 'email'] }]
+        },
+        { model: Attachment, as: 'attachments' },
           {
             model: User,
             as: 'assignedUsers',
@@ -236,7 +350,7 @@ exports.updateTask = async (req, res) => {
       return res.json(updatedTask);
     }
 
-    const { title, description, priority, status, startDate, dueDate, checklists, assignedUserIds, teamIds, attachments } = req.body;
+    const { title, description, priority, status, startDate, dueDate, checklists, checklistGroups, assignedUserIds, teamIds, attachments } = req.body;
 
     await task.update({
       title,
@@ -247,16 +361,56 @@ exports.updateTask = async (req, res) => {
       dueDate,
     });
 
-    // Cập nhật checklists
-    if (checklists !== undefined) {
+    // Cập nhật checklist groups (cách mới)
+    if (checklistGroups !== undefined) {
+      // Xóa tất cả checklist groups và items cũ
+      await ChecklistGroup.destroy({ where: { taskId: task.id } });
       await Checklist.destroy({ where: { taskId: task.id } });
+
+      // Tạo lại checklist groups và items
+      if (checklistGroups.length > 0) {
+        for (const group of checklistGroups) {
+          if (group.title && group.title.trim()) {
+            const checklistGroup = await ChecklistGroup.create({
+              taskId: task.id,
+              title: group.title,
+              assignedTo: group.assignedTo || null,
+            });
+
+            // Tạo checklist items trong group
+            if (group.items && group.items.length > 0) {
+              await Checklist.bulkCreate(
+                group.items
+                  .filter((item) => item.title && item.title.trim())
+                  .map((item) => ({
+                    taskId: task.id,
+                    groupId: checklistGroup.id,
+                    title: item.title,
+                    isCompleted: item.status === 'completed' || item.isCompleted || false,
+                    status: item.status || 'todo',
+                    assignedTo: item.assignedTo || null,
+                  }))
+              );
+            }
+          }
+        }
+      }
+      await updateTaskStatus(task.id);
+    } else if (checklists !== undefined) {
+      // Backward compatible: cập nhật checklists phẳng
+      await Checklist.destroy({ where: { taskId: task.id, groupId: null } });
       if (checklists.length > 0) {
         await Checklist.bulkCreate(
-          checklists.map((item) => ({
-            taskId: task.id,
-            title: item.title,
-            isCompleted: item.isCompleted || false,
-          }))
+          checklists
+            .filter((item) => item.title && item.title.trim())
+            .map((item) => ({
+              taskId: task.id,
+              title: item.title,
+              isCompleted: item.status === 'completed' || item.isCompleted || false,
+              status: item.status || 'todo',
+              assignedTo: item.assignedTo || null,
+              groupId: null,
+            }))
         );
       }
       // Cập nhật trạng thái tự động
@@ -307,7 +461,11 @@ exports.updateTask = async (req, res) => {
     const updatedTask = await Task.findByPk(task.id, {
       include: [
         { model: User, as: 'creator', attributes: ['id', 'name', 'email'] },
-        { model: Checklist, as: 'checklists' },
+        { 
+          model: Checklist, 
+          as: 'checklists',
+          include: [{ model: User, as: 'assignedUser', attributes: ['id', 'name', 'email'] }]
+        },
         { model: Attachment, as: 'attachments' },
         {
           model: User,
@@ -347,18 +505,73 @@ exports.deleteTask = async (req, res) => {
 exports.updateChecklist = async (req, res) => {
   try {
     const { taskId, checklistId } = req.params;
-    const { isCompleted } = req.body;
+    const { status, isCompleted } = req.body;
 
-    const checklist = await Checklist.findByPk(checklistId);
+    const checklist = await Checklist.findByPk(checklistId, {
+      include: [{ model: User, as: 'assignedUser', attributes: ['id', 'name', 'email'] }],
+    });
+    
     if (!checklist || checklist.taskId !== parseInt(taskId)) {
       return res.status(404).json({ message: 'Không tìm thấy checklist' });
     }
 
-    await checklist.update({ isCompleted });
+    // Kiểm tra quyền: chỉ người được gán mới có thể cập nhật status
+    // Admin có thể cập nhật bất kỳ checklist nào
+    if (req.user.role !== 'admin') {
+      if (checklist.assignedTo && checklist.assignedTo !== req.user.id) {
+        return res.status(403).json({ 
+          message: 'Chỉ người được gán mới có thể cập nhật checklist này' 
+        });
+      }
+    }
+
+    // Cập nhật status (ưu tiên) hoặc isCompleted (backward compatible)
+    const updateData = {};
+    if (status !== undefined) {
+      // Validate status
+      if (!['todo', 'in_progress', 'completed'].includes(status)) {
+        return res.status(400).json({ message: 'Status không hợp lệ. Phải là: todo, in_progress, hoặc completed' });
+      }
+      updateData.status = status;
+    } else if (isCompleted !== undefined) {
+      // Backward compatible: nếu chỉ có isCompleted, chuyển đổi sang status
+      updateData.status = isCompleted ? 'completed' : 'todo';
+    }
+
+    await checklist.update(updateData);
     await updateTaskStatus(taskId);
 
+    // Lấy lại task với đầy đủ thông tin
     const task = await Task.findByPk(taskId, {
-      include: [{ model: Checklist, as: 'checklists' }],
+      include: [
+        { model: User, as: 'creator', attributes: ['id', 'name', 'email'] },
+        { 
+          model: ChecklistGroup, 
+          as: 'checklistGroups',
+          include: [
+            { model: User, as: 'assignedUser', attributes: ['id', 'name', 'email'] },
+            {
+              model: Checklist,
+              as: 'checklists',
+              include: [{ model: User, as: 'assignedUser', attributes: ['id', 'name', 'email'] }]
+            }
+          ]
+        },
+        { 
+          model: Checklist, 
+          as: 'checklists',
+          where: { groupId: null },
+          required: false,
+          include: [{ model: User, as: 'assignedUser', attributes: ['id', 'name', 'email'] }]
+        },
+        { model: Attachment, as: 'attachments' },
+        {
+          model: User,
+          as: 'assignedUsers',
+          attributes: ['id', 'name', 'email'],
+          through: { attributes: [] },
+        },
+      ],
     });
 
     res.json(task);

@@ -18,7 +18,8 @@ const TaskDetail = () => {
     status: 'todo',
     startDate: '',
     dueDate: '',
-        checklists: [{ title: '', isCompleted: false }],
+        checklistGroups: [{ title: '', assignedTo: null, items: [{ title: '', status: 'todo', isCompleted: false, assignedTo: null }] }],
+        checklists: [{ title: '', status: 'todo', isCompleted: false, assignedTo: null }], // Backward compatible
         assignedUserIds: [],
         teamIds: [],
         attachments: [],
@@ -27,6 +28,7 @@ const TaskDetail = () => {
   const [teams, setTeams] = useState([]);
   const [newAttachment, setNewAttachment] = useState('');
   const [newChecklist, setNewChecklist] = useState('');
+  const [newChecklistGroup, setNewChecklistGroup] = useState('');
 
   useEffect(() => {
     if (id === 'new') {
@@ -70,9 +72,25 @@ const TaskDetail = () => {
         status: taskData.status || 'todo',
         startDate: taskData.startDate ? format(new Date(taskData.startDate), 'yyyy-MM-dd') : '',
         dueDate: taskData.dueDate ? format(new Date(taskData.dueDate), 'yyyy-MM-dd') : '',
+            checklistGroups: taskData.checklistGroups && taskData.checklistGroups.length > 0
+          ? taskData.checklistGroups.map((g) => ({
+              title: g.title,
+              assignedTo: g.assignedTo || null,
+              items: g.checklists ? g.checklists.map((c) => ({
+                title: c.title,
+                status: c.status || (c.isCompleted ? 'completed' : 'todo'),
+                isCompleted: c.isCompleted,
+                assignedTo: c.assignedTo || null
+              })) : []
+            }))
+          : [{ title: '', assignedTo: null, items: [{ title: '', isCompleted: false, assignedTo: null }] }],
         checklists: taskData.checklists && taskData.checklists.length > 0
-          ? taskData.checklists.map((c) => ({ title: c.title, isCompleted: c.isCompleted }))
-          : [{ title: '', isCompleted: false }],
+          ? taskData.checklists.map((c) => ({ 
+              title: c.title, 
+              isCompleted: c.isCompleted,
+              assignedTo: c.assignedTo || null
+            }))
+          : [{ title: '', isCompleted: false, assignedTo: null }],
         assignedUserIds: taskData.assignedUsers ? taskData.assignedUsers.map((u) => u.id) : [],
         teamIds: [], // Teams sẽ được xác định từ assignedUsers nếu cần, hoặc để trống để admin chọn lại
         attachments: taskData.attachments ? taskData.attachments.map((a) => a.fileUrl) : [],
@@ -87,12 +105,20 @@ const TaskDetail = () => {
     }
   };
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = async (e, createAnother = false) => {
     e.preventDefault();
 
     try {
       const data = {
         ...formData,
+        checklistGroups: formData.checklistGroups
+          .filter((g) => g.title.trim() !== '')
+          .map((g) => ({
+            title: g.title,
+            assignedTo: g.assignedTo || null,
+            items: g.items.filter((item) => item.title.trim() !== ''),
+          }))
+          .filter((g) => g.items.length > 0),
         checklists: formData.checklists.filter((c) => c.title.trim() !== ''),
         assignedUserIds: formData.assignedUserIds,
         teamIds: formData.teamIds,
@@ -101,7 +127,29 @@ const TaskDetail = () => {
 
       if (id === 'new') {
         await api.post('/tasks', data);
+        if (createAnother) {
+          // Reset form và ở lại trang tạo mới
+          setFormData({
+            title: '',
+            description: '',
+            priority: 'medium',
+            status: 'todo',
+            startDate: '',
+            dueDate: '',
+            checklistGroups: [{ title: '', assignedTo: null, items: [{ title: '', status: 'todo', isCompleted: false, assignedTo: null }] }],
+            checklists: [{ title: '', status: 'todo', isCompleted: false, assignedTo: null }],
+            assignedUserIds: [],
+            teamIds: [],
+            attachments: [],
+          });
+          setNewChecklistGroup('');
+          setNewChecklist('');
+          setNewAttachment('');
+          // Scroll to top
+          window.scrollTo(0, 0);
+        } else {
         navigate('/tasks');
+        }
       } else {
         await api.put(`/tasks/${id}`, data);
         setEditing(false);
@@ -112,20 +160,60 @@ const TaskDetail = () => {
     }
   };
 
-  const handleChecklistToggle = async (checklistId, isCompleted) => {
+  const handleChecklistStatusChange = async (checklistId, newStatus) => {
+    if (!checklistId) {
+      console.error('Checklist ID không tồn tại');
+      return;
+    }
+    console.log('Updating checklist:', { checklistId, newStatus, taskId: id });
     try {
-      await api.put(`/tasks/${id}/checklists/${checklistId}`, { isCompleted: !isCompleted });
+      const response = await api.put(`/tasks/${id}/checklists/${checklistId}`, { status: newStatus });
+      console.log('Checklist updated successfully:', response.data);
       fetchTask();
     } catch (error) {
-      alert('Lỗi cập nhật checklist');
+      console.error('Lỗi cập nhật checklist:', error);
+      alert('Lỗi cập nhật checklist: ' + (error.response?.data?.message || error.message));
     }
+  };
+
+  const addChecklistGroup = () => {
+    if (newChecklistGroup.trim()) {
+      setFormData({
+        ...formData,
+        checklistGroups: [...formData.checklistGroups, { 
+          title: newChecklistGroup,
+          assignedTo: null,
+          items: [{ title: '', status: 'todo', isCompleted: false, assignedTo: null }] 
+        }],
+      });
+      setNewChecklistGroup('');
+    }
+  };
+
+  const removeChecklistGroup = (groupIndex) => {
+    setFormData({
+      ...formData,
+      checklistGroups: formData.checklistGroups.filter((_, i) => i !== groupIndex),
+    });
+  };
+
+  const addChecklistItem = (groupIndex) => {
+    const newGroups = [...formData.checklistGroups];
+    newGroups[groupIndex].items.push({ title: '', status: 'todo', isCompleted: false, assignedTo: null });
+    setFormData({ ...formData, checklistGroups: newGroups });
+  };
+
+  const removeChecklistItem = (groupIndex, itemIndex) => {
+    const newGroups = [...formData.checklistGroups];
+    newGroups[groupIndex].items = newGroups[groupIndex].items.filter((_, i) => i !== itemIndex);
+    setFormData({ ...formData, checklistGroups: newGroups });
   };
 
   const addChecklist = () => {
     if (newChecklist.trim()) {
       setFormData({
         ...formData,
-        checklists: [...formData.checklists, { title: newChecklist, isCompleted: false }],
+        checklists: [...formData.checklists, { title: newChecklist, status: 'todo', isCompleted: false, assignedTo: null }],
       });
       setNewChecklist('');
     }
@@ -244,6 +332,23 @@ const TaskDetail = () => {
             </svg>
             <span>Quay lại danh sách</span>
           </Link>
+          {id === 'new' && (
+            <div className="flex items-center space-x-4">
+              <h1 className="text-2xl font-bold text-gray-900">Tạo Task Mới</h1>
+              <Link
+                to="/tasks/new"
+                className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium text-sm transition-colors shadow-sm flex items-center space-x-2"
+                onClick={(e) => {
+                  e.preventDefault();
+                  // Reset form và reload trang
+                  window.location.href = '/tasks/new';
+                }}
+              >
+                <span>+</span>
+                <span>Thêm Task Khác</span>
+          </Link>
+            </div>
+          )}
         </div>
 
         <form onSubmit={handleSubmit} className="bg-white shadow-lg rounded-xl p-8 space-y-8 border border-gray-100">
@@ -477,51 +582,152 @@ const TaskDetail = () => {
 
           <div>
             <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">
-              Checklist
+              Checklist Groups
             </label>
-            <div className="space-y-3">
-              {formData.checklists.map((checklist, index) => (
-                <div key={index} className="flex items-center space-x-3">
+            <div className="space-y-4">
+              {formData.checklistGroups.map((group, groupIndex) => (
+                <div key={groupIndex} className="border border-gray-200 rounded-lg p-4 bg-gray-50">
+                  <div className="flex items-center space-x-3 mb-3">
                   <input
                     type="text"
-                    value={checklist.title}
+                      value={group.title}
                     onChange={(e) => {
-                      const newChecklists = [...formData.checklists];
-                      newChecklists[index].title = e.target.value;
-                      setFormData({ ...formData, checklists: newChecklists });
+                        const newGroups = [...formData.checklistGroups];
+                        newGroups[groupIndex].title = e.target.value;
+                        setFormData({ ...formData, checklistGroups: newGroups });
+                      }}
+                      placeholder="Tên nhóm checklist"
+                      className="flex-1 border border-gray-300 rounded-lg px-4 py-2.5 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                    />
+                    <select
+                      value={group.assignedTo || ''}
+                      onChange={(e) => {
+                        const newGroups = [...formData.checklistGroups];
+                        newGroups[groupIndex].assignedTo = e.target.value ? parseInt(e.target.value) : null;
+                        setFormData({ ...formData, checklistGroups: newGroups });
+                      }}
+                      className="border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors min-w-[180px]"
+                    >
+                      <option value="">Chọn người gán nhóm</option>
+                      {(id === 'new' || formData.assignedUserIds.length > 0) 
+                        ? (id === 'new' 
+                            ? users.map((u) => (
+                                <option key={u.id} value={u.id}>{u.name}</option>
+                              ))
+                            : users.filter(u => formData.assignedUserIds.includes(u.id)).map((u) => (
+                                <option key={u.id} value={u.id}>{u.name}</option>
+                              ))
+                          )
+                        : task?.assignedUsers?.map((u) => (
+                            <option key={u.id} value={u.id}>{u.name}</option>
+                          ))
+                      }
+                    </select>
+                    {formData.checklistGroups.length > 1 && (
+                      <button
+                        type="button"
+                        onClick={() => removeChecklistGroup(groupIndex)}
+                        className="text-red-600 hover:text-red-800 p-2 hover:bg-red-50 rounded-lg transition-colors"
+                        title="Xóa nhóm này"
+                      >
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                        </svg>
+                      </button>
+                    )}
+                  </div>
+                  <div className="space-y-2 ml-4">
+                    {group.items.map((item, itemIndex) => (
+                      <div key={itemIndex} className="flex items-start space-x-3">
+                        <input
+                          type="text"
+                          value={item.title}
+                          onChange={(e) => {
+                            const newGroups = [...formData.checklistGroups];
+                            newGroups[groupIndex].items[itemIndex].title = e.target.value;
+                            setFormData({ ...formData, checklistGroups: newGroups });
                     }}
                     placeholder="Nhập mục kiểm tra"
                     className="flex-1 border border-gray-300 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
                   />
-                  {formData.checklists.length > 1 && (
+                        <select
+                          value={item.status || 'todo'}
+                          onChange={(e) => {
+                            const newGroups = [...formData.checklistGroups];
+                            newGroups[groupIndex].items[itemIndex].status = e.target.value;
+                            newGroups[groupIndex].items[itemIndex].isCompleted = e.target.value === 'completed';
+                            setFormData({ ...formData, checklistGroups: newGroups });
+                          }}
+                          className="border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors min-w-[130px]"
+                        >
+                          <option value="todo">Chưa làm</option>
+                          <option value="in_progress">Đang làm</option>
+                          <option value="completed">Hoàn thành</option>
+                        </select>
+                        <select
+                          value={item.assignedTo || ''}
+                          onChange={(e) => {
+                            const newGroups = [...formData.checklistGroups];
+                            newGroups[groupIndex].items[itemIndex].assignedTo = e.target.value ? parseInt(e.target.value) : null;
+                            setFormData({ ...formData, checklistGroups: newGroups });
+                          }}
+                          className="border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors min-w-[180px]"
+                        >
+                          <option value="">Chọn người gán</option>
+                          {(id === 'new' || formData.assignedUserIds.length > 0) 
+                            ? (id === 'new' 
+                                ? users.map((u) => (
+                                    <option key={u.id} value={u.id}>{u.name}</option>
+                                  ))
+                                : users.filter(u => formData.assignedUserIds.includes(u.id)).map((u) => (
+                                    <option key={u.id} value={u.id}>{u.name}</option>
+                                  ))
+                              )
+                            : task?.assignedUsers?.map((u) => (
+                                <option key={u.id} value={u.id}>{u.name}</option>
+                              ))
+                          }
+                        </select>
+                        {group.items.length > 1 && (
                     <button
                       type="button"
-                      onClick={() => removeChecklist(index)}
+                            onClick={() => removeChecklistItem(groupIndex, itemIndex)}
                       className="text-red-600 hover:text-red-800 p-2 hover:bg-red-50 rounded-lg transition-colors"
-                      title="Delete this item"
+                            title="Xóa mục này"
                     >
                       <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                       </svg>
                     </button>
                   )}
+                      </div>
+                    ))}
+                    <button
+                      type="button"
+                      onClick={() => addChecklistItem(groupIndex)}
+                      className="text-blue-600 hover:text-blue-800 text-sm font-medium flex items-center space-x-1"
+                    >
+                      <span>+</span>
+                      <span>Thêm mục vào nhóm này</span>
+                    </button>
+                  </div>
                 </div>
               ))}
               <div className="flex items-center space-x-3">
                 <input
                   type="text"
-                  value={newChecklist}
-                  onChange={(e) => setNewChecklist(e.target.value)}
-                  onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), addChecklist())}
-                  placeholder="Add new checklist item"
+                  value={newChecklistGroup}
+                  onChange={(e) => setNewChecklistGroup(e.target.value)}
+                  onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), addChecklistGroup())}
+                  placeholder="Tên nhóm checklist mới"
                   className="flex-1 border border-gray-300 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
                 />
                 <button 
                   type="button" 
-                  onClick={addChecklist} 
+                  onClick={addChecklistGroup} 
                   className="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-lg font-medium text-sm transition-colors shadow-sm"
                 >
-                  Add
+                  Thêm Nhóm
                 </button>
               </div>
             </div>
@@ -581,6 +787,15 @@ const TaskDetail = () => {
             >
               Cancel
             </Link>
+            {id === 'new' && (
+              <button 
+                type="button"
+                onClick={(e) => handleSubmit(e, true)}
+                className="bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded-lg font-medium text-sm transition-colors shadow-sm hover:shadow-md"
+              >
+                Lưu và Tạo Task Mới
+              </button>
+            )}
             <button 
               type="submit" 
               className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg font-medium text-sm transition-colors shadow-sm hover:shadow-md"
@@ -593,9 +808,30 @@ const TaskDetail = () => {
     );
   }
 
-  // View mode
-  const completedCount = task.checklists ? task.checklists.filter((c) => c.isCompleted).length : 0;
-  const totalCount = task.checklists ? task.checklists.length : 0;
+  // View mode - Tính toán progress bao gồm cả checklist groups và checklists phẳng
+  let completedCount = 0;
+  let totalCount = 0;
+  
+  // Đếm từ checklist groups
+  if (task.checklistGroups && task.checklistGroups.length > 0) {
+    task.checklistGroups.forEach((group) => {
+      if (group.checklists && group.checklists.length > 0) {
+        group.checklists.forEach((item) => {
+          totalCount++;
+          if (item.isCompleted) completedCount++;
+        });
+      }
+    });
+  }
+  
+  // Đếm từ checklists phẳng (backward compatible)
+  if (task.checklists && task.checklists.length > 0) {
+    task.checklists.forEach((checklist) => {
+      totalCount++;
+      if (checklist.isCompleted) completedCount++;
+    });
+  }
+  
   const progressPercent = totalCount > 0 ? (completedCount / totalCount) * 100 : 0;
 
   // Calculate time stats
@@ -921,7 +1157,126 @@ const TaskDetail = () => {
           </div>
         )}
 
-        {/* Checklist Section */}
+        {/* Checklist Groups Section */}
+        {task.checklistGroups && task.checklistGroups.length > 0 && (
+          <div className="px-8 py-6 border-b border-gray-200">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center space-x-3">
+                <div className="flex-shrink-0">
+                  <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                  </svg>
+                </div>
+                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Danh sách kiểm tra (Nhóm)</p>
+              </div>
+            </div>
+            <div className="space-y-4">
+              {task.checklistGroups.map((group) => {
+                const groupCompletedCount = group.checklists ? group.checklists.filter((c) => {
+                  const status = c.status || (c.isCompleted ? 'completed' : 'todo');
+                  return status === 'completed';
+                }).length : 0;
+                const groupTotalCount = group.checklists ? group.checklists.length : 0;
+                const groupProgressPercent = groupTotalCount > 0 ? (groupCompletedCount / groupTotalCount) * 100 : 0;
+                
+                return (
+                  <div key={group.id} className="border border-gray-200 rounded-lg p-4 bg-gray-50">
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="flex items-center space-x-3">
+                        <h4 className="text-sm font-semibold text-gray-900">{group.title}</h4>
+                        {group.assignedUser && (
+                          <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                            <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                            </svg>
+                            {group.assignedUser.name}
+                          </span>
+                        )}
+                      </div>
+                      <span className="text-xs font-medium text-gray-600 bg-white px-2 py-1 rounded-full">
+                        {groupCompletedCount}/{groupTotalCount} ({Math.round(groupProgressPercent)}%)
+                      </span>
+                    </div>
+                    {group.checklists && group.checklists.length > 0 && (
+                      <div className="space-y-2 ml-4">
+                        {group.checklists.map((checklist) => {
+                          const isAssignedToCurrentUser = checklist.assignedTo && parseInt(checklist.assignedTo) === parseInt(user?.id);
+                          const canToggle = user?.role === 'admin' || isAssignedToCurrentUser || !checklist.assignedTo;
+                          const currentStatus = checklist.status || (checklist.isCompleted ? 'completed' : 'todo');
+                          console.log('Checklist render:', { checklistId: checklist.id, assignedTo: checklist.assignedTo, userId: user?.id, isAssignedToCurrentUser, canToggle, role: user?.role });
+                          
+                          const getStatusColor = (status) => {
+                            switch (status) {
+                              case 'completed': return 'bg-green-100 text-green-800 border-green-300';
+                              case 'in_progress': return 'bg-yellow-100 text-yellow-800 border-yellow-300';
+                              case 'todo': return 'bg-gray-100 text-gray-800 border-gray-300';
+                              default: return 'bg-gray-100 text-gray-800 border-gray-300';
+                            }
+                          };
+                          
+                          const getStatusText = (status) => {
+                            switch (status) {
+                              case 'completed': return 'Hoàn thành';
+                              case 'in_progress': return 'Đang làm';
+                              case 'todo': return 'Chưa làm';
+                              default: return 'Chưa làm';
+                            }
+                          };
+                          
+                          return (
+                            <div 
+                              key={checklist.id} 
+                              className={`flex items-center space-x-3 p-2 rounded-lg transition-colors ${
+                                currentStatus === 'completed' ? 'bg-gray-50' : 'bg-white hover:bg-gray-50'
+                              }`}
+                            >
+                              <select
+                                value={currentStatus}
+                                onChange={(e) => {
+                                  console.log('Select changed:', { checklistId: checklist.id, newValue: e.target.value, canToggle });
+                                  if (canToggle) {
+                                    handleChecklistStatusChange(checklist.id, e.target.value);
+                                  } else {
+                                    console.warn('Cannot toggle - permission denied');
+                                  }
+                                }}
+                                disabled={!canToggle}
+                                className={`text-xs font-medium px-2 py-1 rounded border transition-colors ${
+                                  getStatusColor(currentStatus)
+                                } ${canToggle ? 'cursor-pointer' : 'cursor-not-allowed opacity-50'}`}
+                                title={!canToggle ? 'Chỉ người được gán mới có thể cập nhật' : ''}
+                              >
+                                <option value="todo">Chưa làm</option>
+                                <option value="in_progress">Đang làm</option>
+                                <option value="completed">Hoàn thành</option>
+                              </select>
+                              <div className="flex-1 flex items-center justify-between">
+                                <label
+                                  className={`text-sm ${
+                                    currentStatus === 'completed' ? 'line-through text-gray-500' : 'text-gray-900'
+                                  }`}
+                                >
+                                  {checklist.title}
+                                </label>
+                                {checklist.assignedUser && (
+                                  <span className="ml-3 inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                                    {checklist.assignedUser.name}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* Checklist Section (Flat - Backward Compatible) */}
         {task.checklists && task.checklists.length > 0 && (
           <div className="px-8 py-6 border-b border-gray-200">
             <div className="flex items-center justify-between mb-4">
@@ -938,29 +1293,68 @@ const TaskDetail = () => {
               </span>
             </div>
             <div className="space-y-3 mb-4">
-              {task.checklists.map((checklist) => (
+              {task.checklists.map((checklist) => {
+                const isAssignedToCurrentUser = checklist.assignedTo && parseInt(checklist.assignedTo) === parseInt(user?.id);
+                const canToggle = user?.role === 'admin' || isAssignedToCurrentUser || !checklist.assignedTo;
+                const currentStatus = checklist.status || (checklist.isCompleted ? 'completed' : 'todo');
+                console.log('Checklist render (flat):', { checklistId: checklist.id, assignedTo: checklist.assignedTo, userId: user?.id, isAssignedToCurrentUser, canToggle, role: user?.role });
+                
+                const getStatusColor = (status) => {
+                  switch (status) {
+                    case 'completed': return 'bg-green-100 text-green-800 border-green-300';
+                    case 'in_progress': return 'bg-yellow-100 text-yellow-800 border-yellow-300';
+                    case 'todo': return 'bg-gray-100 text-gray-800 border-gray-300';
+                    default: return 'bg-gray-100 text-gray-800 border-gray-300';
+                  }
+                };
+                
+                return (
                 <div 
                   key={checklist.id} 
                   className={`flex items-center space-x-3 p-3 rounded-lg transition-colors ${
-                    checklist.isCompleted ? 'bg-gray-50' : 'bg-white hover:bg-gray-50'
-                  }`}
-                >
-                  <input
-                    type="checkbox"
-                    checked={checklist.isCompleted}
-                    onChange={() => handleChecklistToggle(checklist.id, checklist.isCompleted)}
-                    className="w-5 h-5 text-blue-600 border-gray-300 rounded focus:ring-2 focus:ring-blue-500 cursor-pointer"
-                  />
-                  <label
-                    className={`flex-1 text-sm font-medium cursor-pointer ${
-                      checklist.isCompleted ? 'line-through text-gray-500' : 'text-gray-900'
+                      currentStatus === 'completed' ? 'bg-gray-50' : 'bg-white hover:bg-gray-50'
                     }`}
-                    onClick={() => handleChecklistToggle(checklist.id, checklist.isCompleted)}
+                  >
+                    <select
+                      value={currentStatus}
+                      onChange={(e) => {
+                        console.log('Select changed:', { checklistId: checklist.id, newValue: e.target.value, canToggle });
+                        if (canToggle) {
+                          handleChecklistStatusChange(checklist.id, e.target.value);
+                        } else {
+                          console.warn('Cannot toggle - permission denied');
+                        }
+                      }}
+                      disabled={!canToggle}
+                      className={`text-xs font-medium px-3 py-1.5 rounded border transition-colors ${
+                        getStatusColor(currentStatus)
+                      } ${canToggle ? 'cursor-pointer' : 'cursor-not-allowed opacity-50'}`}
+                      title={!canToggle ? 'Chỉ người được gán mới có thể cập nhật' : ''}
+                    >
+                      <option value="todo">Chưa làm</option>
+                      <option value="in_progress">Đang làm</option>
+                      <option value="completed">Hoàn thành</option>
+                    </select>
+                    <div className="flex-1 flex items-center justify-between">
+                  <label
+                        className={`text-sm font-medium ${
+                          currentStatus === 'completed' ? 'line-through text-gray-500' : 'text-gray-900'
+                    }`}
                   >
                     {checklist.title}
                   </label>
+                      {checklist.assignedUser && (
+                        <span className="ml-3 inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                          <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                          </svg>
+                          {checklist.assignedUser.name}
+                        </span>
+                      )}
                 </div>
-              ))}
+                  </div>
+                );
+              })}
             </div>
             {/* Progress Bar */}
             <div className="relative">

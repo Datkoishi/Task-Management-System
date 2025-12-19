@@ -31,3 +31,7 @@ const TaskAssignment = sequelize.define('TaskAssignment', {
 
 module.exports = TaskAssignment;
 
+
+
+
+

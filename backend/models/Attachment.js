@@ -31,3 +31,7 @@ const Attachment = sequelize.define('Attachment', {
 
 module.exports = Attachment;
 
+
+
+
+

@@ -34,6 +34,7 @@ CREATE TABLE IF NOT EXISTS checklists (
     task_id INTEGER NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
     title VARCHAR(255) NOT NULL,
     is_completed BOOLEAN DEFAULT FALSE,
+    assigned_to INTEGER REFERENCES users(id) ON DELETE SET NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
@@ -82,6 +83,7 @@ CREATE INDEX IF NOT EXISTS idx_tasks_created_by ON tasks(created_by);
 CREATE INDEX IF NOT EXISTS idx_tasks_status ON tasks(status);
 CREATE INDEX IF NOT EXISTS idx_tasks_priority ON tasks(priority);
 CREATE INDEX IF NOT EXISTS idx_checklists_task_id ON checklists(task_id);
+CREATE INDEX IF NOT EXISTS idx_checklists_assigned_to ON checklists(assigned_to);
 CREATE INDEX IF NOT EXISTS idx_task_assignments_task_id ON task_assignments(task_id);
 CREATE INDEX IF NOT EXISTS idx_task_assignments_user_id ON task_assignments(user_id);
 CREATE INDEX IF NOT EXISTS idx_attachments_task_id ON attachments(task_id);

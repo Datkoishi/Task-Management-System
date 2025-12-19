@@ -1,23 +1,25 @@
 const { DataTypes } = require('sequelize');
 const sequelize = require('../config/database');
 
-const Team = sequelize.define('Team', {
+const ChecklistGroup = sequelize.define('ChecklistGroup', {
   id: {
     type: DataTypes.INTEGER,
     primaryKey: true,
     autoIncrement: true,
   },
-  name: {
+  taskId: {
+    type: DataTypes.INTEGER,
+    field: 'task_id',
+    allowNull: false,
+  },
+  title: {
     type: DataTypes.STRING,
     allowNull: false,
   },
-  description: {
-    type: DataTypes.TEXT,
-  },
-  createdBy: {
+  assignedTo: {
     type: DataTypes.INTEGER,
-    field: 'created_by',
-    allowNull: false,
+    field: 'assigned_to',
+    allowNull: true,
   },
   createdAt: {
     type: DataTypes.DATE,
@@ -28,12 +30,8 @@ const Team = sequelize.define('Team', {
     field: 'updated_at',
   },
 }, {
-  tableName: 'teams',
+  tableName: 'checklist_groups',
 });
 
-module.exports = Team;
-
-
-
-
+module.exports = ChecklistGroup;
 

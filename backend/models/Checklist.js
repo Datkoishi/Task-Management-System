@@ -21,6 +21,24 @@ const Checklist = sequelize.define('Checklist', {
     defaultValue: false,
     field: 'is_completed',
   },
+  status: {
+    type: DataTypes.STRING,
+    defaultValue: 'todo',
+    allowNull: false,
+    validate: {
+      isIn: [['todo', 'in_progress', 'completed']],
+    },
+  },
+  assignedTo: {
+    type: DataTypes.INTEGER,
+    field: 'assigned_to',
+    allowNull: true,
+  },
+  groupId: {
+    type: DataTypes.INTEGER,
+    field: 'group_id',
+    allowNull: true,
+  },
   createdAt: {
     type: DataTypes.DATE,
     field: 'created_at',
@@ -34,4 +52,8 @@ const Checklist = sequelize.define('Checklist', {
 });
 
 module.exports = Checklist;
+
+
+
+
 
