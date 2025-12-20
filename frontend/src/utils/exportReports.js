@@ -1,17 +1,17 @@
-// Hàm xuất báo cáo ra CSV
+// Export report to CSV
 export const exportToCSV = (tasks, filename = 'tasks_report') => {
-  const headers = ['Tiêu đề', 'Mô tả', 'Trạng thái', 'Ưu tiên', 'Ngày bắt đầu', 'Ngày đến hạn', 'Người tạo', 'Người được giao', 'Ngày tạo'];
+  const headers = ['Title', 'Description', 'Status', 'Priority', 'Start Date', 'Due Date', 'Creator', 'Assigned To', 'Created Date'];
   
   const rows = tasks.map(task => [
     task.title || '',
     task.description || '',
-    task.status === 'completed' ? 'Hoàn thành' : task.status === 'in_progress' ? 'Đang làm' : 'Chưa bắt đầu',
-    task.priority === 'high' ? 'Cao' : task.priority === 'medium' ? 'Trung bình' : 'Thấp',
-    task.startDate ? new Date(task.startDate).toLocaleDateString('vi-VN') : '',
-    task.dueDate ? new Date(task.dueDate).toLocaleDateString('vi-VN') : '',
+    task.status === 'completed' ? 'Completed' : task.status === 'in_progress' ? 'In Progress' : 'Not Started',
+    task.priority === 'high' ? 'High' : task.priority === 'medium' ? 'Medium' : 'Low',
+    task.startDate ? new Date(task.startDate).toLocaleDateString('en-US') : '',
+    task.dueDate ? new Date(task.dueDate).toLocaleDateString('en-US') : '',
     task.creator ? task.creator.name : '',
     task.assignedUsers ? task.assignedUsers.map(u => u.name).join(', ') : '',
-    task.createdAt ? new Date(task.createdAt).toLocaleDateString('vi-VN') : '',
+    task.createdAt ? new Date(task.createdAt).toLocaleDateString('en-US') : '',
   ]);
 
   const csvContent = [
@@ -19,7 +19,7 @@ export const exportToCSV = (tasks, filename = 'tasks_report') => {
     ...rows.map(row => row.map(cell => `"${cell}"`).join(','))
   ].join('\n');
 
-  // Thêm BOM để hỗ trợ tiếng Việt
+  // Add BOM for UTF-8 support
   const BOM = '\uFEFF';
   const blob = new Blob([BOM + csvContent], { type: 'text/csv;charset=utf-8;' });
   const link = document.createElement('a');
@@ -33,33 +33,33 @@ export const exportToCSV = (tasks, filename = 'tasks_report') => {
   document.body.removeChild(link);
 };
 
-// Hàm xuất báo cáo ra Excel (sử dụng CSV format, có thể mở bằng Excel)
+// Export report to Excel (uses CSV format, can be opened with Excel)
 export const exportToExcel = (tasks, filename = 'tasks_report') => {
   exportToCSV(tasks, filename); // Excel có thể mở CSV
 };
 
-// Hàm tạo PDF content (cần thêm thư viện jsPDF nếu muốn PDF thực sự)
+// Generate PDF content (need to add jsPDF library for real PDF)
 export const exportToPDF = async (tasks, filename = 'tasks_report') => {
-  // Simple approach: tạo HTML table và in
+  // Simple approach: create HTML table and print
   const tableContent = `
     <table border="1" cellpadding="5" cellspacing="0">
       <thead>
         <tr>
-          <th>Tiêu đề</th>
-          <th>Trạng thái</th>
-          <th>Ưu tiên</th>
-          <th>Người tạo</th>
-          <th>Ngày tạo</th>
+          <th>Title</th>
+          <th>Status</th>
+          <th>Priority</th>
+          <th>Creator</th>
+          <th>Created Date</th>
         </tr>
       </thead>
       <tbody>
         ${tasks.map(task => `
           <tr>
             <td>${task.title || ''}</td>
-            <td>${task.status === 'completed' ? 'Hoàn thành' : task.status === 'in_progress' ? 'Đang làm' : 'Chưa bắt đầu'}</td>
-            <td>${task.priority === 'high' ? 'Cao' : task.priority === 'medium' ? 'Trung bình' : 'Thấp'}</td>
+            <td>${task.status === 'completed' ? 'Completed' : task.status === 'in_progress' ? 'In Progress' : 'Not Started'}</td>
+            <td>${task.priority === 'high' ? 'High' : task.priority === 'medium' ? 'Medium' : 'Low'}</td>
             <td>${task.creator ? task.creator.name : ''}</td>
-            <td>${task.createdAt ? new Date(task.createdAt).toLocaleDateString('vi-VN') : ''}</td>
+            <td>${task.createdAt ? new Date(task.createdAt).toLocaleDateString('en-US') : ''}</td>
           </tr>
         `).join('')}
       </tbody>

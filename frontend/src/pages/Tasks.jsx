@@ -24,7 +24,7 @@ const Tasks = () => {
       const res = await api.get(`/tasks?${params.toString()}`);
       setTasks(res.data);
     } catch (error) {
-      console.error('Lỗi tải nhiệm vụ:', error);
+      console.error('Error loading tasks:', error);
     } finally {
       setLoading(false);
     }
@@ -123,14 +123,12 @@ const Tasks = () => {
             </button>
           </>
         )}
-        {user?.role === 'admin' && (
-          <Link
-            to="/tasks/new"
-            className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium text-sm transition-colors inline-block"
-          >
-            + Create New Task
-          </Link>
-        )}
+        <Link
+          to="/tasks/new"
+          className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium text-sm transition-colors inline-block"
+        >
+          + Create New Task
+        </Link>
       </div>
 
       {/* Filters */}
@@ -257,7 +255,7 @@ const Tasks = () => {
                             onClick={() => handleDelete(task.id)}
                             className="text-red-600 hover:text-red-800 font-medium"
                           >
-                            Xóa
+                            Delete
                           </button>
                         )}
                       </div>

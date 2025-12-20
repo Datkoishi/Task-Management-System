@@ -30,7 +30,7 @@ const Dashboard = () => {
       );
       setRecentTasks(allTasks.slice(0, 5));
     } catch (error) {
-      console.error('Lỗi tải dữ liệu:', error);
+      console.error('Error loading data:', error);
     } finally {
       setLoading(false);
     }
@@ -116,15 +116,13 @@ const Dashboard = () => {
             </p>
           </div>
           <div className="flex space-x-3">
-            {user?.role === 'admin' && (
-              <Link
-                to="/tasks/new"
-                className="bg-white text-purple-600 px-6 py-3 rounded-lg font-semibold hover:bg-purple-50 transition-colors flex items-center space-x-2"
-              >
-                <span>+</span>
-                <span>Create New Task</span>
-              </Link>
-            )}
+            <Link
+              to="/tasks/new"
+              className="bg-white text-purple-600 px-6 py-3 rounded-lg font-semibold hover:bg-purple-50 transition-colors flex items-center space-x-2"
+            >
+              <span>+</span>
+              <span>Create New Task</span>
+            </Link>
             {hasPendingTasks && (
               <Link
                 to="/tasks"
@@ -140,7 +138,7 @@ const Dashboard = () => {
 
       {/* Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        {/* Tổng nhiệm vụ */}
+        {/* Total Tasks */}
         <div className="bg-white rounded-xl shadow-md p-6 border-l-4 border-blue-500">
           <div className="flex items-center justify-between">
             <div>
@@ -153,7 +151,7 @@ const Dashboard = () => {
           </div>
         </div>
 
-        {/* Đang làm */}
+        {/* In Progress */}
         <div className="bg-white rounded-xl shadow-md p-6 border-l-4 border-yellow-500">
           <div className="flex items-center justify-between">
             <div>
@@ -167,7 +165,7 @@ const Dashboard = () => {
           </div>
         </div>
 
-        {/* Hoàn thành */}
+        {/* Completed */}
         <div className="bg-white rounded-xl shadow-md p-6 border-l-4 border-green-500">
           <div className="flex items-center justify-between">
             <div>
@@ -243,28 +241,24 @@ const Dashboard = () => {
           <div className="bg-white rounded-xl shadow-md">
             <div className="px-6 py-4 border-b border-gray-200 flex justify-between items-center">
               <h3 className="text-lg font-semibold text-gray-900">Recent Tasks</h3>
-              {user?.role === 'admin' && (
-                <Link
-                  to="/tasks/new"
-                  className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors flex items-center space-x-1"
-                >
-                  <span>+</span>
-                  <span>Create New</span>
-                </Link>
-              )}
+              <Link
+                to="/tasks/new"
+                className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors flex items-center space-x-1"
+              >
+                <span>+</span>
+                <span>Create New</span>
+              </Link>
             </div>
             <div className="divide-y divide-gray-200">
               {recentTasks.length === 0 ? (
                 <div className="px-6 py-12 text-center text-gray-500">
                   <p className="text-lg mb-2">No tasks yet</p>
-                  {user?.role === 'admin' && (
-                    <Link
-                      to="/tasks/new"
-                      className="text-blue-600 hover:text-blue-800 font-medium"
-                    >
-                      Create your first task →
-                    </Link>
-                  )}
+                  <Link
+                    to="/tasks/new"
+                    className="text-blue-600 hover:text-blue-800 font-medium"
+                  >
+                    Create your first task →
+                  </Link>
                 </div>
               ) : (
                 recentTasks.map((task) => (
@@ -331,12 +325,11 @@ const Dashboard = () => {
           <div className="bg-white rounded-xl shadow-md p-6">
             <h3 className="text-lg font-semibold text-gray-900 mb-4">Quick Actions</h3>
             <div className="space-y-3">
-              {user?.role === 'admin' && (
-                <Link
-                  to="/tasks/new"
-                  className="block p-4 bg-blue-50 rounded-lg hover:bg-blue-100 transition-colors border border-blue-200"
-                >
-                  <div className="flex items-center">
+              <Link
+                to="/tasks/new"
+                className="block p-4 bg-blue-50 rounded-lg hover:bg-blue-100 transition-colors border border-blue-200"
+              >
+                <div className="flex items-center">
                     <div className="w-10 h-10 bg-blue-500 rounded-lg flex items-center justify-center mr-3">
                       <span className="text-white text-xl">+</span>
                     </div>
@@ -346,7 +339,6 @@ const Dashboard = () => {
                     </div>
                   </div>
                 </Link>
-              )}
 
               <Link
                 to="/tasks?status=in_progress"

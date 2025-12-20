@@ -16,12 +16,14 @@ const Sidebar = () => {
     if (path === '/admin') {
       return location.pathname === '/admin' && !location.search.includes('tab=');
     }
+    // Exact match for paths
     return location.pathname === path;
   };
 
   const menuItems = [
     { path: '/dashboard', label: 'Dashboard', icon: '🏠' },
     { path: '/tasks', label: 'Tasks', icon: '📋' },
+    { path: '/tasks/new', label: 'Create Task', icon: '➕' },
   ];
 
   if (user?.role === 'admin') {

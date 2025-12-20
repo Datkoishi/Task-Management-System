@@ -47,7 +47,7 @@ const AdminDashboard = () => {
       setTasks(tasksRes.data);
       setStats(statsRes.data);
     } catch (error) {
-      console.error('Lỗi tải dữ liệu:', error);
+      console.error('Error loading data:', error);
     } finally {
       setLoading(false);
     }
@@ -66,7 +66,7 @@ const AdminDashboard = () => {
         setTasks(res.data);
       }
     } catch (error) {
-      console.error('Lỗi tải dữ liệu:', error);
+      console.error('Error loading data:', error);
     }
   };
 
@@ -712,7 +712,7 @@ const AdminDashboard = () => {
                     Role
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Ngày tạo
+                    Created Date
                   </th>
                   <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Actions
@@ -853,7 +853,7 @@ const AdminDashboard = () => {
                     Assigned To
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Ngày tạo
+                    Created Date
                   </th>
                 </tr>
               </thead>

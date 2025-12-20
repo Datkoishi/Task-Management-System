@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const { body } = require('express-validator');
-const { register, login, getMe } = require('../controllers/authController');
+const { register, login, getMe, getAllUsers } = require('../controllers/authController');
 const { protect } = require('../middleware/auth');
 
 router.post(
@@ -24,6 +24,7 @@ router.post(
 );
 
 router.get('/me', protect, getMe);
+router.get('/users', protect, getAllUsers); // Lấy danh sách users cho tất cả user đã đăng nhập
 
 module.exports = router;
 

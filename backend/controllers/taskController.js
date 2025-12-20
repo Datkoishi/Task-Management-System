@@ -50,18 +50,28 @@ exports.getAllTasks = async (req, res) => {
     const { status, priority } = req.query;
     const where = {};
 
-    // Nếu là user thường, chỉ lấy tasks được assign cho họ (không lấy tasks họ tạo vì chỉ admin mới tạo task)
+    // Nếu là user thường, lấy tasks được assign cho họ HOẶC tasks họ tạo
     if (req.user.role === 'user') {
       const assignedTasks = await TaskAssignment.findAll({
         where: { userId: req.user.id },
         attributes: ['taskId'],
       });
       const assignedTaskIds = assignedTasks.map((ta) => ta.taskId);
+      
+      // Lấy tasks họ tạo
+      const createdTasks = await Task.findAll({
+        where: { createdBy: req.user.id },
+        attributes: ['id'],
+      });
+      const createdTaskIds = createdTasks.map((t) => t.id);
+      
+      // Kết hợp cả hai danh sách
+      const allTaskIds = [...new Set([...assignedTaskIds, ...createdTaskIds])];
 
-      if (assignedTaskIds.length > 0) {
-        where.id = { [Op.in]: assignedTaskIds };
+      if (allTaskIds.length > 0) {
+        where.id = { [Op.in]: allTaskIds };
       } else {
-        // Nếu không có task nào được assign, trả về mảng rỗng
+        // Nếu không có task nào, trả về mảng rỗng
         where.id = { [Op.in]: [] };
       }
     }
@@ -133,12 +143,13 @@ exports.getTaskById = async (req, res) => {
       return res.status(404).json({ message: 'Không tìm thấy nhiệm vụ' });
     }
 
-    // Kiểm tra quyền truy cập - user chỉ có thể xem task được assign cho họ
+    // Kiểm tra quyền truy cập - user có thể xem task được assign cho họ HOẶC task họ tạo
     if (req.user.role === 'user') {
       const isAssigned = await TaskAssignment.findOne({
         where: { taskId: task.id, userId: req.user.id },
       });
-      if (!isAssigned) {
+      const isCreator = task.createdBy === req.user.id;
+      if (!isAssigned && !isCreator) {
         return res.status(403).json({ message: 'Bạn không có quyền truy cập nhiệm vụ này' });
       }
     }
@@ -151,11 +162,7 @@ exports.getTaskById = async (req, res) => {
 
 exports.createTask = async (req, res) => {
   try {
-    // Chỉ admin mới có thể tạo nhiệm vụ
-    if (req.user.role !== 'admin') {
-      return res.status(403).json({ message: 'Chỉ quản trị viên mới có thể tạo nhiệm vụ' });
-    }
-
+    // Tất cả user đều có thể tạo nhiệm vụ
     const { title, description, priority, status, startDate, dueDate, checklists, checklistGroups, assignedUserIds, teamIds, attachments } = req.body;
 
     const task = await Task.create({
@@ -290,64 +297,69 @@ exports.updateTask = async (req, res) => {
       return res.status(404).json({ message: 'Không tìm thấy nhiệm vụ' });
     }
 
-    // Kiểm tra quyền - chỉ admin mới có thể chỉnh sửa task, user chỉ có thể update checklist
+    // Kiểm tra quyền - admin hoặc creator có thể chỉnh sửa task
     if (req.user.role === 'user') {
-      // User chỉ có thể cập nhật checklist của task được gán cho họ
+      const isCreator = task.createdBy === req.user.id;
       const isAssigned = await TaskAssignment.findOne({
         where: { taskId: task.id, userId: req.user.id },
       });
-      if (!isAssigned) {
+      
+      if (!isCreator && !isAssigned) {
         return res.status(403).json({ message: 'Bạn không có quyền chỉnh sửa nhiệm vụ này' });
       }
-      // User chỉ có thể update checklists, không thể update các field khác
-      const { checklists } = req.body;
-      if (checklists !== undefined) {
-        await Checklist.destroy({ where: { taskId: task.id } });
-        if (checklists.length > 0) {
-          await Checklist.bulkCreate(
-            checklists.map((item) => ({
-              taskId: task.id,
-              title: item.title,
-              isCompleted: item.isCompleted || false,
-              assignedTo: item.assignedTo || null,
-            }))
-          );
+      
+      // Nếu không phải creator, chỉ có thể update checklists
+      if (!isCreator) {
+        const { checklists } = req.body;
+        if (checklists !== undefined) {
+          await Checklist.destroy({ where: { taskId: task.id } });
+          if (checklists.length > 0) {
+            await Checklist.bulkCreate(
+              checklists.map((item) => ({
+                taskId: task.id,
+                title: item.title,
+                isCompleted: item.isCompleted || false,
+                assignedTo: item.assignedTo || null,
+              }))
+            );
+          }
+          await updateTaskStatus(task.id);
         }
-        await updateTaskStatus(task.id);
-      }
-      // Lấy lại task sau khi update
-    const updatedTask = await Task.findByPk(task.id, {
-      include: [
-        { model: User, as: 'creator', attributes: ['id', 'name', 'email'] },
-        { 
-          model: ChecklistGroup, 
-          as: 'checklistGroups',
+        // Lấy lại task sau khi update
+        const updatedTask = await Task.findByPk(task.id, {
           include: [
-            { model: User, as: 'assignedUser', attributes: ['id', 'name', 'email'] },
-            {
-              model: Checklist,
+            { model: User, as: 'creator', attributes: ['id', 'name', 'email'] },
+            { 
+              model: ChecklistGroup, 
+              as: 'checklistGroups',
+              include: [
+                { model: User, as: 'assignedUser', attributes: ['id', 'name', 'email'] },
+                {
+                  model: Checklist,
+                  as: 'checklists',
+                  include: [{ model: User, as: 'assignedUser', attributes: ['id', 'name', 'email'] }]
+                }
+              ]
+            },
+            { 
+              model: Checklist, 
               as: 'checklists',
+              where: { groupId: null },
+              required: false,
               include: [{ model: User, as: 'assignedUser', attributes: ['id', 'name', 'email'] }]
-            }
-          ]
-        },
-        { 
-          model: Checklist, 
-          as: 'checklists',
-          where: { groupId: null },
-          required: false,
-          include: [{ model: User, as: 'assignedUser', attributes: ['id', 'name', 'email'] }]
-        },
-        { model: Attachment, as: 'attachments' },
-          {
-            model: User,
-            as: 'assignedUsers',
-            attributes: ['id', 'name', 'email'],
-            through: { attributes: [] },
-          },
-        ],
-      });
-      return res.json(updatedTask);
+            },
+            { model: Attachment, as: 'attachments' },
+            {
+              model: User,
+              as: 'assignedUsers',
+              attributes: ['id', 'name', 'email'],
+              through: { attributes: [] },
+            },
+          ],
+        });
+        return res.json(updatedTask);
+      }
+      // Nếu là creator, có thể chỉnh sửa tất cả (tiếp tục code bên dưới)
     }
 
     const { title, description, priority, status, startDate, dueDate, checklists, checklistGroups, assignedUserIds, teamIds, attachments } = req.body;

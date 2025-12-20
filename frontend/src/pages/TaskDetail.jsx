@@ -32,11 +32,7 @@ const TaskDetail = () => {
 
   useEffect(() => {
     if (id === 'new') {
-      // Chỉ admin mới có thể tạo nhiệm vụ
-      if (user?.role !== 'admin') {
-        navigate('/tasks');
-        return;
-      }
+      // All users can create tasks
       setLoading(false);
       fetchUsers();
     } else {
@@ -46,16 +42,24 @@ const TaskDetail = () => {
 
   const fetchUsers = async () => {
     try {
-      if (user?.role === 'admin') {
+      // All users can get user list to assign to tasks
         const [usersRes, teamsRes] = await Promise.all([
-          api.get('/admin/users'),
-          api.get('/teams'),
+        api.get('/auth/users'), // Endpoint mới cho tất cả user
+        api.get('/teams').catch(() => ({ data: [] })), // Teams có thể không có quyền truy cập
         ]);
         setUsers(usersRes.data);
+      if (teamsRes?.data) {
         setTeams(teamsRes.data);
       }
     } catch (error) {
-      console.error('Lỗi tải danh sách users/teams:', error);
+      console.error('Error loading users/teams:', error);
+      // Nếu không lấy được teams, vẫn tiếp tục với users
+      try {
+        const usersRes = await api.get('/auth/users');
+        setUsers(usersRes.data);
+      } catch (err) {
+        console.error('Error loading users:', err);
+      }
     }
   };
 
@@ -98,8 +102,8 @@ const TaskDetail = () => {
 
       fetchUsers();
     } catch (error) {
-      console.error('Lỗi tải nhiệm vụ:', error);
-      alert('Không thể tải nhiệm vụ');
+      console.error('Error loading task:', error);
+      alert('Unable to load task');
     } finally {
       setLoading(false);
     }
@@ -156,7 +160,7 @@ const TaskDetail = () => {
         fetchTask();
       }
     } catch (error) {
-      alert('Lỗi lưu nhiệm vụ: ' + (error.response?.data?.message || error.message));
+      alert('Error saving task: ' + (error.response?.data?.message || error.message));
     }
   };
 
@@ -165,14 +169,12 @@ const TaskDetail = () => {
       console.error('Checklist ID không tồn tại');
       return;
     }
-    console.log('Updating checklist:', { checklistId, newStatus, taskId: id });
     try {
-      const response = await api.put(`/tasks/${id}/checklists/${checklistId}`, { status: newStatus });
-      console.log('Checklist updated successfully:', response.data);
+      await api.put(`/tasks/${id}/checklists/${checklistId}`, { status: newStatus });
       fetchTask();
     } catch (error) {
-      console.error('Lỗi cập nhật checklist:', error);
-      alert('Lỗi cập nhật checklist: ' + (error.response?.data?.message || error.message));
+      console.error('Error updating checklist:', error);
+      alert('Error updating checklist: ' + (error.response?.data?.message || error.message));
     }
   };
 
@@ -330,23 +332,11 @@ const TaskDetail = () => {
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
             </svg>
-            <span>Quay lại danh sách</span>
+            <span>Back to List</span>
           </Link>
           {id === 'new' && (
             <div className="flex items-center space-x-4">
-              <h1 className="text-2xl font-bold text-gray-900">Tạo Task Mới</h1>
-              <Link
-                to="/tasks/new"
-                className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium text-sm transition-colors shadow-sm flex items-center space-x-2"
-                onClick={(e) => {
-                  e.preventDefault();
-                  // Reset form và reload trang
-                  window.location.href = '/tasks/new';
-                }}
-              >
-                <span>+</span>
-                <span>Thêm Task Khác</span>
-          </Link>
+              <h1 className="text-2xl font-bold text-gray-900">Create New Task</h1>
             </div>
           )}
         </div>
@@ -439,7 +429,7 @@ const TaskDetail = () => {
             </div>
           </div>
 
-          {user?.role === 'admin' && (
+          {(user?.role === 'admin' || (id === 'new') || (task && task.creator && task.creator.id === user?.id)) && (
             <>
               <div>
                 <div className="flex items-center justify-between mb-2">
@@ -596,7 +586,7 @@ const TaskDetail = () => {
                         newGroups[groupIndex].title = e.target.value;
                         setFormData({ ...formData, checklistGroups: newGroups });
                       }}
-                      placeholder="Tên nhóm checklist"
+                      placeholder="Checklist group name"
                       className="flex-1 border border-gray-300 rounded-lg px-4 py-2.5 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
                     />
                     <select
@@ -608,7 +598,7 @@ const TaskDetail = () => {
                       }}
                       className="border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors min-w-[180px]"
                     >
-                      <option value="">Chọn người gán nhóm</option>
+                      <option value="">Select group assignee</option>
                       {(id === 'new' || formData.assignedUserIds.length > 0) 
                         ? (id === 'new' 
                             ? users.map((u) => (
@@ -628,7 +618,7 @@ const TaskDetail = () => {
                         type="button"
                         onClick={() => removeChecklistGroup(groupIndex)}
                         className="text-red-600 hover:text-red-800 p-2 hover:bg-red-50 rounded-lg transition-colors"
-                        title="Xóa nhóm này"
+                        title="Delete this group"
                       >
                         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
@@ -647,7 +637,7 @@ const TaskDetail = () => {
                             newGroups[groupIndex].items[itemIndex].title = e.target.value;
                             setFormData({ ...formData, checklistGroups: newGroups });
                     }}
-                    placeholder="Nhập mục kiểm tra"
+                    placeholder="Enter checklist item"
                     className="flex-1 border border-gray-300 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
                   />
                         <select
@@ -660,9 +650,9 @@ const TaskDetail = () => {
                           }}
                           className="border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors min-w-[130px]"
                         >
-                          <option value="todo">Chưa làm</option>
-                          <option value="in_progress">Đang làm</option>
-                          <option value="completed">Hoàn thành</option>
+                          <option value="todo">Not Started</option>
+                          <option value="in_progress">In Progress</option>
+                          <option value="completed">Completed</option>
                         </select>
                         <select
                           value={item.assignedTo || ''}
@@ -673,7 +663,7 @@ const TaskDetail = () => {
                           }}
                           className="border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors min-w-[180px]"
                         >
-                          <option value="">Chọn người gán</option>
+                          <option value="">Select assignee</option>
                           {(id === 'new' || formData.assignedUserIds.length > 0) 
                             ? (id === 'new' 
                                 ? users.map((u) => (
@@ -693,7 +683,7 @@ const TaskDetail = () => {
                       type="button"
                             onClick={() => removeChecklistItem(groupIndex, itemIndex)}
                       className="text-red-600 hover:text-red-800 p-2 hover:bg-red-50 rounded-lg transition-colors"
-                            title="Xóa mục này"
+                      title="Delete this item"
                     >
                       <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
@@ -708,7 +698,7 @@ const TaskDetail = () => {
                       className="text-blue-600 hover:text-blue-800 text-sm font-medium flex items-center space-x-1"
                     >
                       <span>+</span>
-                      <span>Thêm mục vào nhóm này</span>
+                      <span>Add item to this group</span>
                     </button>
                   </div>
                 </div>
@@ -719,7 +709,7 @@ const TaskDetail = () => {
                   value={newChecklistGroup}
                   onChange={(e) => setNewChecklistGroup(e.target.value)}
                   onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), addChecklistGroup())}
-                  placeholder="Tên nhóm checklist mới"
+                  placeholder="New checklist group name"
                   className="flex-1 border border-gray-300 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
                 />
                 <button 
@@ -727,7 +717,7 @@ const TaskDetail = () => {
                   onClick={addChecklistGroup} 
                   className="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-lg font-medium text-sm transition-colors shadow-sm"
                 >
-                  Thêm Nhóm
+                  Add Group
                 </button>
               </div>
             </div>
@@ -787,15 +777,6 @@ const TaskDetail = () => {
             >
               Cancel
             </Link>
-            {id === 'new' && (
-              <button 
-                type="button"
-                onClick={(e) => handleSubmit(e, true)}
-                className="bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded-lg font-medium text-sm transition-colors shadow-sm hover:shadow-md"
-              >
-                Lưu và Tạo Task Mới
-              </button>
-            )}
             <button 
               type="submit" 
               className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg font-medium text-sm transition-colors shadow-sm hover:shadow-md"
@@ -818,7 +799,9 @@ const TaskDetail = () => {
       if (group.checklists && group.checklists.length > 0) {
         group.checklists.forEach((item) => {
           totalCount++;
-          if (item.isCompleted) completedCount++;
+          // Sử dụng status thay vì isCompleted
+          const itemStatus = item.status || (item.isCompleted ? 'completed' : 'todo');
+          if (itemStatus === 'completed') completedCount++;
         });
       }
     });
@@ -828,7 +811,9 @@ const TaskDetail = () => {
   if (task.checklists && task.checklists.length > 0) {
     task.checklists.forEach((checklist) => {
       totalCount++;
-      if (checklist.isCompleted) completedCount++;
+      // Sử dụng status thay vì isCompleted
+      const checklistStatus = checklist.status || (checklist.isCompleted ? 'completed' : 'todo');
+      if (checklistStatus === 'completed') completedCount++;
     });
   }
   
@@ -892,133 +877,144 @@ const TaskDetail = () => {
   const dueDateInfo = getDueDateInfo();
 
   return (
-    <div className="max-w-4xl mx-auto space-y-6">
-      {/* Header Section */}
-      <div className="flex items-center justify-between">
-        <Link 
-          to="/tasks" 
-          className="text-blue-600 hover:text-blue-800 flex items-center space-x-2 text-sm font-medium transition-colors"
-        >
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-          </svg>
-          <span>Quay lại danh sách</span>
-        </Link>
-        {/* Chỉ admin mới có thể chỉnh sửa nhiệm vụ */}
-        {user?.role === 'admin' && (
-          <button
-            onClick={() => setEditing(true)}
-            className="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-lg font-medium text-sm transition-colors shadow-sm hover:shadow-md"
-          >
-            Edit
-          </button>
-        )}
-      </div>
-
-      {/* Task Title */}
-      <div>
-        <h1 className="text-3xl font-bold text-gray-900">{task.title}</h1>
+    <div className="space-y-6">
+      {/* Header Banner */}
+      <div className="bg-gradient-to-r from-purple-600 to-blue-600 rounded-xl p-8 text-white shadow-lg transform transition-all duration-300 hover:shadow-xl">
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center">
+          <div className="mb-4 md:mb-0 flex-1">
+            <div className="flex items-center space-x-3 mb-2">
+              <Link 
+                to="/tasks" 
+                className="text-white hover:text-purple-100 flex items-center space-x-2 text-sm font-medium transition-all duration-200 hover:translate-x-[-4px]"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                </svg>
+                <span>Back</span>
+              </Link>
+            </div>
+            <h1 className="text-3xl font-bold mb-2">{task.title}</h1>
+            <p className="text-purple-100 text-lg">
+              {task.description ? task.description.substring(0, 100) + (task.description.length > 100 ? '...' : '') : 'No description'}
+            </p>
+          </div>
+          <div className="flex space-x-3">
+            {(user?.role === 'admin' || (task && task.creator && task.creator.id === user?.id)) && (
+              <button
+                onClick={() => setEditing(true)}
+                className="bg-white text-purple-600 px-6 py-3 rounded-lg font-semibold hover:bg-purple-50 transition-all duration-200 flex items-center space-x-2 transform hover:scale-105 hover:shadow-md active:scale-95"
+              >
+                <span>✏️</span>
+                <span>Edit Task</span>
+              </button>
+            )}
+          </div>
+        </div>
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 animate-fadeIn">
         {/* Due Date Countdown */}
         {timeStats && (
-          <div className={`rounded-xl p-5 shadow-md ${
+          <div className={`bg-white rounded-xl shadow-md p-6 border-l-4 transform transition-all duration-300 hover:scale-105 hover:shadow-lg ${
             timeStats.isOverdue 
-              ? 'bg-red-50 border border-red-200' 
+              ? 'border-red-500' 
               : timeStats.isDueToday 
-              ? 'bg-orange-50 border border-orange-200'
+              ? 'border-orange-500'
               : timeStats.isDueTomorrow
-              ? 'bg-yellow-50 border border-yellow-200'
-              : 'bg-blue-50 border border-blue-200'
+              ? 'border-yellow-500'
+              : 'border-blue-500'
           }`}>
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-xs font-semibold text-gray-600 uppercase tracking-wider">Due Date</span>
-              {timeStats.isOverdue && (
-                <span className="px-2 py-1 text-xs font-semibold bg-red-100 text-red-800 rounded-full">
-                  Overdue
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-600 mb-1">Due Date</p>
+                {timeStats.isOverdue ? (
+                  <>
+                    <p className="text-3xl font-bold text-gray-900">
+                      {Math.abs(timeStats.daysLeft)}
+                    </p>
+                    <p className="text-xs text-red-600 mt-1">Days Overdue</p>
+                  </>
+                ) : timeStats.isDueToday ? (
+                  <>
+                    <p className="text-3xl font-bold text-gray-900">
+                      {timeStats.hoursLeft}
+                    </p>
+                    <p className="text-xs text-orange-600 mt-1">Hours Remaining</p>
+                  </>
+                ) : (
+                  <>
+                    <p className="text-3xl font-bold text-gray-900">
+                      {timeStats.daysLeft}
+                    </p>
+                    <p className="text-xs text-blue-600 mt-1">Days Left</p>
+                  </>
+                )}
+              </div>
+              <div className={`w-12 h-12 rounded-lg flex items-center justify-center ${
+                timeStats.isOverdue 
+                  ? 'bg-red-100' 
+                  : timeStats.isDueToday 
+                  ? 'bg-orange-100'
+                  : timeStats.isDueTomorrow
+                  ? 'bg-yellow-100'
+                  : 'bg-blue-100'
+              } transform transition-all duration-300 hover:scale-110 hover:rotate-3`}>
+                <span className="text-2xl">
+                  {timeStats.isOverdue ? '⚠️' : timeStats.isDueToday ? '⏰' : '📅'}
                 </span>
-              )}
-              {timeStats.isDueToday && (
-                <span className="px-2 py-1 text-xs font-semibold bg-orange-100 text-orange-800 rounded-full">
-                  Today
-                </span>
-              )}
+              </div>
             </div>
-            {timeStats.isOverdue ? (
-              <div>
-                <p className="text-2xl font-bold text-red-600">
-                  {Math.abs(timeStats.daysLeft)} days
-                </p>
-                <p className="text-sm text-gray-600 mt-1">Overdue</p>
-              </div>
-            ) : timeStats.isDueToday ? (
-              <div>
-                <p className="text-2xl font-bold text-orange-600">
-                  {timeStats.hoursLeft} hours
-                </p>
-                <p className="text-sm text-gray-600 mt-1">Remaining</p>
-              </div>
-            ) : (
-              <div>
-                <p className="text-2xl font-bold text-blue-600">
-                  {timeStats.daysLeft}
-                </p>
-                <p className="text-sm text-gray-600 mt-1">days left</p>
-              </div>
-            )}
-            <p className="text-xs text-gray-500 mt-2">
-              {format(new Date(task.dueDate), 'dd/MM/yyyy')}
-            </p>
           </div>
         )}
 
         {/* Progress Stats */}
         {durationStats && (
-          <div className="bg-purple-50 border border-purple-200 rounded-xl p-5 shadow-md">
-            <span className="text-xs font-semibold text-gray-600 uppercase tracking-wider">Time Progress</span>
-            <div className="mt-2">
-              <p className="text-2xl font-bold text-purple-600">
-                {Math.round(durationStats.progressDays)}%
-              </p>
-              <p className="text-sm text-gray-600 mt-1">
-                {durationStats.daysPassed}/{durationStats.totalDays} days
-              </p>
-            </div>
-            <div className="mt-3 bg-purple-200 rounded-full h-2">
-              <div
-                className="bg-purple-600 h-2 rounded-full transition-all"
-                style={{ width: `${durationStats.progressDays}%` }}
-              />
+          <div className="bg-white rounded-xl shadow-md p-6 border-l-4 border-purple-500 transform transition-all duration-300 hover:scale-105 hover:shadow-lg">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-600 mb-1">Time Progress</p>
+                <p className="text-3xl font-bold text-gray-900">
+                  {Math.round(durationStats.progressDays)}%
+                </p>
+                <p className="text-xs text-purple-600 mt-1">
+                  {durationStats.daysPassed}/{durationStats.totalDays} days
+                </p>
+              </div>
+              <div className="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center transform transition-all duration-300 hover:scale-110 hover:rotate-3">
+                <span className="text-2xl">⏳</span>
+              </div>
             </div>
           </div>
         )}
 
         {/* Checklist Progress */}
         {totalCount > 0 && (
-          <div className="bg-green-50 border border-green-200 rounded-xl p-5 shadow-md">
-            <span className="text-xs font-semibold text-gray-600 uppercase tracking-wider">Checklist</span>
-            <div className="mt-2">
-              <p className="text-2xl font-bold text-green-600">
-                {Math.round(progressPercent)}%
-              </p>
-              <p className="text-sm text-gray-600 mt-1">
-                {completedCount}/{totalCount} completed
-              </p>
-            </div>
-            <div className="mt-3 bg-green-200 rounded-full h-2">
-              <div
-                className="bg-green-600 h-2 rounded-full transition-all"
-                style={{ width: `${progressPercent}%` }}
-              />
+          <div className="bg-white rounded-xl shadow-md p-6 border-l-4 border-green-500 transform transition-all duration-300 hover:scale-105 hover:shadow-lg">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-600 mb-1">Checklist</p>
+                <p className="text-3xl font-bold text-gray-900">
+                  {Math.round(progressPercent)}%
+                </p>
+                <p className="text-xs text-green-600 mt-1">
+                  {completedCount}/{totalCount} completed
+                </p>
+              </div>
+              <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center transform transition-all duration-300 hover:scale-110 hover:rotate-3">
+                <span className="text-2xl">✅</span>
+              </div>
             </div>
           </div>
         )}
       </div>
 
-      {/* Main Card */}
-      <div className="bg-white shadow-lg rounded-xl overflow-hidden border border-gray-100">
+      {/* Main Content Grid */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Main Content - 2 columns */}
+        <div className="lg:col-span-2 space-y-6">
+          {/* Task Details Card */}
+          <div className="bg-white rounded-xl shadow-md overflow-hidden transform transition-all duration-300 hover:shadow-lg">
         {/* Status and Priority Section */}
         <div className="px-8 py-6 border-b border-gray-200 bg-gray-50">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -1030,7 +1026,7 @@ const TaskDetail = () => {
               </div>
               <div>
                 <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">Status</p>
-                <span className={`px-3 py-1.5 inline-flex text-sm font-semibold rounded-full ${getStatusColor(task.status)}`}>
+                <span className={`px-3 py-1.5 inline-flex text-sm font-semibold rounded-full transition-all duration-200 hover:scale-105 ${getStatusColor(task.status)}`}>
                   {getStatusText(task.status)}
                 </span>
               </div>
@@ -1104,8 +1100,8 @@ const TaskDetail = () => {
                     <p className="text-sm font-medium text-gray-900">{format(new Date(task.dueDate), 'dd/MM/yyyy')}</p>
                     <p className="text-xs text-gray-500 mt-0.5">
                       {dueDateInfo?.dayName}
-                      {timeStats?.isOverdue && <span className="text-red-600 font-semibold ml-2">• Quá hạn</span>}
-                      {timeStats?.isDueToday && <span className="text-orange-600 font-semibold ml-2">• Hôm nay</span>}
+                      {timeStats?.isOverdue && <span className="text-red-600 font-semibold ml-2">• Overdue</span>}
+                      {timeStats?.isDueToday && <span className="text-orange-600 font-semibold ml-2">• Today</span>}
                     </p>
                   </div>
                 </div>
@@ -1146,7 +1142,7 @@ const TaskDetail = () => {
                   {task.assignedUsers.map((u) => (
                     <span
                       key={u.id}
-                      className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-blue-100 text-blue-800"
+                      className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-blue-100 text-blue-800 transition-all duration-200 hover:bg-blue-200 hover:scale-105"
                     >
                       {u.name}
                     </span>
@@ -1157,218 +1153,6 @@ const TaskDetail = () => {
           </div>
         )}
 
-        {/* Checklist Groups Section */}
-        {task.checklistGroups && task.checklistGroups.length > 0 && (
-          <div className="px-8 py-6 border-b border-gray-200">
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center space-x-3">
-                <div className="flex-shrink-0">
-                  <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-                  </svg>
-                </div>
-                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Danh sách kiểm tra (Nhóm)</p>
-              </div>
-            </div>
-            <div className="space-y-4">
-              {task.checklistGroups.map((group) => {
-                const groupCompletedCount = group.checklists ? group.checklists.filter((c) => {
-                  const status = c.status || (c.isCompleted ? 'completed' : 'todo');
-                  return status === 'completed';
-                }).length : 0;
-                const groupTotalCount = group.checklists ? group.checklists.length : 0;
-                const groupProgressPercent = groupTotalCount > 0 ? (groupCompletedCount / groupTotalCount) * 100 : 0;
-                
-                return (
-                  <div key={group.id} className="border border-gray-200 rounded-lg p-4 bg-gray-50">
-                    <div className="flex items-center justify-between mb-3">
-                      <div className="flex items-center space-x-3">
-                        <h4 className="text-sm font-semibold text-gray-900">{group.title}</h4>
-                        {group.assignedUser && (
-                          <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                            <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                            </svg>
-                            {group.assignedUser.name}
-                          </span>
-                        )}
-                      </div>
-                      <span className="text-xs font-medium text-gray-600 bg-white px-2 py-1 rounded-full">
-                        {groupCompletedCount}/{groupTotalCount} ({Math.round(groupProgressPercent)}%)
-                      </span>
-                    </div>
-                    {group.checklists && group.checklists.length > 0 && (
-                      <div className="space-y-2 ml-4">
-                        {group.checklists.map((checklist) => {
-                          const isAssignedToCurrentUser = checklist.assignedTo && parseInt(checklist.assignedTo) === parseInt(user?.id);
-                          const canToggle = user?.role === 'admin' || isAssignedToCurrentUser || !checklist.assignedTo;
-                          const currentStatus = checklist.status || (checklist.isCompleted ? 'completed' : 'todo');
-                          console.log('Checklist render:', { checklistId: checklist.id, assignedTo: checklist.assignedTo, userId: user?.id, isAssignedToCurrentUser, canToggle, role: user?.role });
-                          
-                          const getStatusColor = (status) => {
-                            switch (status) {
-                              case 'completed': return 'bg-green-100 text-green-800 border-green-300';
-                              case 'in_progress': return 'bg-yellow-100 text-yellow-800 border-yellow-300';
-                              case 'todo': return 'bg-gray-100 text-gray-800 border-gray-300';
-                              default: return 'bg-gray-100 text-gray-800 border-gray-300';
-                            }
-                          };
-                          
-                          const getStatusText = (status) => {
-                            switch (status) {
-                              case 'completed': return 'Hoàn thành';
-                              case 'in_progress': return 'Đang làm';
-                              case 'todo': return 'Chưa làm';
-                              default: return 'Chưa làm';
-                            }
-                          };
-                          
-                          return (
-                            <div 
-                              key={checklist.id} 
-                              className={`flex items-center space-x-3 p-2 rounded-lg transition-colors ${
-                                currentStatus === 'completed' ? 'bg-gray-50' : 'bg-white hover:bg-gray-50'
-                              }`}
-                            >
-                              <select
-                                value={currentStatus}
-                                onChange={(e) => {
-                                  console.log('Select changed:', { checklistId: checklist.id, newValue: e.target.value, canToggle });
-                                  if (canToggle) {
-                                    handleChecklistStatusChange(checklist.id, e.target.value);
-                                  } else {
-                                    console.warn('Cannot toggle - permission denied');
-                                  }
-                                }}
-                                disabled={!canToggle}
-                                className={`text-xs font-medium px-2 py-1 rounded border transition-colors ${
-                                  getStatusColor(currentStatus)
-                                } ${canToggle ? 'cursor-pointer' : 'cursor-not-allowed opacity-50'}`}
-                                title={!canToggle ? 'Chỉ người được gán mới có thể cập nhật' : ''}
-                              >
-                                <option value="todo">Chưa làm</option>
-                                <option value="in_progress">Đang làm</option>
-                                <option value="completed">Hoàn thành</option>
-                              </select>
-                              <div className="flex-1 flex items-center justify-between">
-                                <label
-                                  className={`text-sm ${
-                                    currentStatus === 'completed' ? 'line-through text-gray-500' : 'text-gray-900'
-                                  }`}
-                                >
-                                  {checklist.title}
-                                </label>
-                                {checklist.assignedUser && (
-                                  <span className="ml-3 inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                                    {checklist.assignedUser.name}
-                                  </span>
-                                )}
-                              </div>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        )}
-
-        {/* Checklist Section (Flat - Backward Compatible) */}
-        {task.checklists && task.checklists.length > 0 && (
-          <div className="px-8 py-6 border-b border-gray-200">
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center space-x-3">
-                <div className="flex-shrink-0">
-                  <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-                  </svg>
-                </div>
-                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Danh sách kiểm tra</p>
-              </div>
-              <span className="text-sm font-medium text-gray-700 bg-gray-100 px-3 py-1 rounded-full">
-                {completedCount}/{totalCount} completed ({Math.round(progressPercent)}%)
-              </span>
-            </div>
-            <div className="space-y-3 mb-4">
-              {task.checklists.map((checklist) => {
-                const isAssignedToCurrentUser = checklist.assignedTo && parseInt(checklist.assignedTo) === parseInt(user?.id);
-                const canToggle = user?.role === 'admin' || isAssignedToCurrentUser || !checklist.assignedTo;
-                const currentStatus = checklist.status || (checklist.isCompleted ? 'completed' : 'todo');
-                console.log('Checklist render (flat):', { checklistId: checklist.id, assignedTo: checklist.assignedTo, userId: user?.id, isAssignedToCurrentUser, canToggle, role: user?.role });
-                
-                const getStatusColor = (status) => {
-                  switch (status) {
-                    case 'completed': return 'bg-green-100 text-green-800 border-green-300';
-                    case 'in_progress': return 'bg-yellow-100 text-yellow-800 border-yellow-300';
-                    case 'todo': return 'bg-gray-100 text-gray-800 border-gray-300';
-                    default: return 'bg-gray-100 text-gray-800 border-gray-300';
-                  }
-                };
-                
-                return (
-                <div 
-                  key={checklist.id} 
-                  className={`flex items-center space-x-3 p-3 rounded-lg transition-colors ${
-                      currentStatus === 'completed' ? 'bg-gray-50' : 'bg-white hover:bg-gray-50'
-                    }`}
-                  >
-                    <select
-                      value={currentStatus}
-                      onChange={(e) => {
-                        console.log('Select changed:', { checklistId: checklist.id, newValue: e.target.value, canToggle });
-                        if (canToggle) {
-                          handleChecklistStatusChange(checklist.id, e.target.value);
-                        } else {
-                          console.warn('Cannot toggle - permission denied');
-                        }
-                      }}
-                      disabled={!canToggle}
-                      className={`text-xs font-medium px-3 py-1.5 rounded border transition-colors ${
-                        getStatusColor(currentStatus)
-                      } ${canToggle ? 'cursor-pointer' : 'cursor-not-allowed opacity-50'}`}
-                      title={!canToggle ? 'Chỉ người được gán mới có thể cập nhật' : ''}
-                    >
-                      <option value="todo">Chưa làm</option>
-                      <option value="in_progress">Đang làm</option>
-                      <option value="completed">Hoàn thành</option>
-                    </select>
-                    <div className="flex-1 flex items-center justify-between">
-                  <label
-                        className={`text-sm font-medium ${
-                          currentStatus === 'completed' ? 'line-through text-gray-500' : 'text-gray-900'
-                    }`}
-                  >
-                    {checklist.title}
-                  </label>
-                      {checklist.assignedUser && (
-                        <span className="ml-3 inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                          <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                          </svg>
-                          {checklist.assignedUser.name}
-                        </span>
-                      )}
-                </div>
-                  </div>
-                );
-              })}
-            </div>
-            {/* Progress Bar */}
-            <div className="relative">
-              <div className="bg-gray-200 rounded-full h-3 overflow-hidden">
-                <div
-                  className={`h-full rounded-full transition-all duration-300 ${
-                    progressPercent === 100 ? 'bg-green-500' : 'bg-blue-500'
-                  }`}
-                  style={{ width: `${progressPercent}%` }}
-                />
-              </div>
-            </div>
-          </div>
-        )}
 
         {/* Attachments Section */}
         {task.attachments && task.attachments.length > 0 && (
@@ -1473,6 +1257,266 @@ const TaskDetail = () => {
                 </div>
               </div>
             )}
+          </div>
+        </div>
+          </div>
+
+          {/* Checklist Card */}
+          {(task.checklistGroups && task.checklistGroups.length > 0) || (task.checklists && task.checklists.length > 0) ? (
+            <div className="bg-white rounded-xl shadow-md overflow-hidden transform transition-all duration-300 hover:shadow-lg animate-fadeIn">
+              {task.checklistGroups && task.checklistGroups.length > 0 && (
+                <>
+                  <div className="px-6 py-4 border-b border-gray-200 flex justify-between items-center">
+                    <h3 className="text-lg font-semibold text-gray-900">Checklist Groups</h3>
+                  </div>
+                  <div className="p-6 space-y-4">
+                    {task.checklistGroups.map((group) => {
+                      const groupCompletedCount = group.checklists ? group.checklists.filter((c) => {
+                        const status = c.status || (c.isCompleted ? 'completed' : 'todo');
+                        return status === 'completed';
+                      }).length : 0;
+                      const groupTotalCount = group.checklists ? group.checklists.length : 0;
+                      const groupProgressPercent = groupTotalCount > 0 ? (groupCompletedCount / groupTotalCount) * 100 : 0;
+                      
+                      return (
+                        <div key={group.id} className="border border-gray-200 rounded-lg p-4 bg-gray-50 transform transition-all duration-200 hover:shadow-md hover:border-blue-300">
+                          <div className="flex items-center justify-between mb-3">
+                            <div className="flex items-center space-x-3">
+                              <h4 className="text-sm font-semibold text-gray-900">{group.title}</h4>
+                              {group.assignedUser && (
+                                <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                                  <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                                  </svg>
+                                  {group.assignedUser.name}
+                                </span>
+                              )}
+                            </div>
+                            <span className="text-xs font-medium text-gray-600 bg-white px-2 py-1 rounded-full">
+                              {groupCompletedCount}/{groupTotalCount} ({Math.round(groupProgressPercent)}%)
+                            </span>
+                          </div>
+                          {group.checklists && group.checklists.length > 0 && (
+                            <div className="space-y-2 ml-4">
+                              {group.checklists.map((checklist) => {
+                                const isAssignedToCurrentUser = checklist.assignedTo && parseInt(checklist.assignedTo) === parseInt(user?.id);
+                                const canToggle = user?.role === 'admin' || isAssignedToCurrentUser || !checklist.assignedTo;
+                                const currentStatus = checklist.status || (checklist.isCompleted ? 'completed' : 'todo');
+                                
+                                const getStatusColor = (status) => {
+                                  switch (status) {
+                                    case 'completed': return 'bg-green-100 text-green-800 border-green-300';
+                                    case 'in_progress': return 'bg-yellow-100 text-yellow-800 border-yellow-300';
+                                    case 'todo': return 'bg-gray-100 text-gray-800 border-gray-300';
+                                    default: return 'bg-gray-100 text-gray-800 border-gray-300';
+                                  }
+                                };
+                                
+                                return (
+                            <div 
+                              key={checklist.id} 
+                              className={`flex items-center space-x-3 p-2 rounded-lg transition-all duration-200 ${
+                                currentStatus === 'completed' ? 'bg-gray-50' : 'bg-white hover:bg-gray-50 hover:shadow-sm'
+                              }`}
+                            >
+                                    <select
+                                      value={currentStatus}
+                                      onChange={(e) => {
+                                        if (canToggle) {
+                                          handleChecklistStatusChange(checklist.id, e.target.value);
+                                        }
+                                      }}
+                                      disabled={!canToggle}
+                                className={`text-xs font-medium px-2 py-1 rounded border transition-all duration-200 ${
+                                  getStatusColor(currentStatus)
+                                } ${canToggle ? 'cursor-pointer hover:scale-105 hover:shadow-sm' : 'cursor-not-allowed opacity-50'}`}
+                                      title={!canToggle ? 'Only assigned user can update' : ''}
+                                    >
+                                      <option value="todo">Not Started</option>
+                                      <option value="in_progress">In Progress</option>
+                                      <option value="completed">Completed</option>
+                                    </select>
+                                    <div className="flex-1 flex items-center justify-between">
+                                      <label
+                                        className={`text-sm ${
+                                          currentStatus === 'completed' ? 'line-through text-gray-500' : 'text-gray-900'
+                                        }`}
+                                      >
+                                        {checklist.title}
+                                      </label>
+                                      {checklist.assignedUser && (
+                                        <span className="ml-3 inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                                          {checklist.assignedUser.name}
+                                        </span>
+                                      )}
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </>
+              )}
+
+              {task.checklists && task.checklists.length > 0 && (
+                <>
+                  <div className="px-6 py-4 border-b border-gray-200 flex justify-between items-center">
+                    <h3 className="text-lg font-semibold text-gray-900">Checklist</h3>
+                    <span className="text-sm font-medium text-gray-700 bg-gray-100 px-3 py-1 rounded-full">
+                      {completedCount}/{totalCount} completed ({Math.round(progressPercent)}%)
+                    </span>
+                  </div>
+                  <div className="p-6 space-y-3">
+                    {task.checklists.map((checklist) => {
+                      const isAssignedToCurrentUser = checklist.assignedTo && parseInt(checklist.assignedTo) === parseInt(user?.id);
+                      const canToggle = user?.role === 'admin' || isAssignedToCurrentUser || !checklist.assignedTo;
+                      const currentStatus = checklist.status || (checklist.isCompleted ? 'completed' : 'todo');
+                      
+                      const getStatusColor = (status) => {
+                        switch (status) {
+                          case 'completed': return 'bg-green-100 text-green-800 border-green-300';
+                          case 'in_progress': return 'bg-yellow-100 text-yellow-800 border-yellow-300';
+                          case 'todo': return 'bg-gray-100 text-gray-800 border-gray-300';
+                          default: return 'bg-gray-100 text-gray-800 border-gray-300';
+                        }
+                      };
+                      
+                      return (
+                        <div 
+                          key={checklist.id} 
+                          className={`flex items-center space-x-3 p-3 rounded-lg transition-all duration-200 ${
+                            currentStatus === 'completed' ? 'bg-gray-50' : 'bg-white hover:bg-gray-50 hover:shadow-sm'
+                          }`}
+                        >
+                          <select
+                            value={currentStatus}
+                            onChange={(e) => {
+                              if (canToggle) {
+                                handleChecklistStatusChange(checklist.id, e.target.value);
+                              }
+                            }}
+                            disabled={!canToggle}
+                            className={`text-xs font-medium px-3 py-1.5 rounded border transition-all duration-200 ${
+                              getStatusColor(currentStatus)
+                            } ${canToggle ? 'cursor-pointer hover:scale-105 hover:shadow-sm' : 'cursor-not-allowed opacity-50'}`}
+                            title={!canToggle ? 'Only assigned user can update' : ''}
+                          >
+                            <option value="todo">Not Started</option>
+                            <option value="in_progress">In Progress</option>
+                            <option value="completed">Completed</option>
+                          </select>
+                          <div className="flex-1 flex items-center justify-between">
+                            <label
+                              className={`text-sm font-medium ${
+                                currentStatus === 'completed' ? 'line-through text-gray-500' : 'text-gray-900'
+                              }`}
+                            >
+                              {checklist.title}
+                            </label>
+                            {checklist.assignedUser && (
+                              <span className="ml-3 inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                                <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                                </svg>
+                                {checklist.assignedUser.name}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </>
+              )}
+            </div>
+          ) : null}
+        </div>
+
+        {/* Sidebar - 1 column */}
+        <div className="space-y-6">
+          {/* Task Info Card */}
+          <div className="bg-white rounded-xl shadow-md overflow-hidden transform transition-all duration-300 hover:shadow-lg">
+            <div className="px-6 py-4 border-b border-gray-200">
+              <h3 className="text-lg font-semibold text-gray-900">Task Information</h3>
+            </div>
+            <div className="p-6 space-y-4">
+              {/* Status */}
+              <div>
+                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Status</p>
+                <span className={`px-3 py-1.5 inline-flex text-sm font-semibold rounded-full ${getStatusColor(task.status)}`}>
+                  {getStatusText(task.status)}
+                </span>
+              </div>
+
+              {/* Priority */}
+              <div>
+                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Priority</p>
+                <p className="text-sm font-semibold text-gray-900">{getPriorityText(task.priority)}</p>
+              </div>
+
+              {/* Dates */}
+              {task.startDate && (
+                <div>
+                  <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Start Date</p>
+                  <p className="text-sm font-medium text-gray-900">{format(new Date(task.startDate), 'dd/MM/yyyy')}</p>
+                  <p className="text-xs text-gray-500 mt-0.5">
+                    {new Date(task.startDate).toLocaleDateString('en-US', { weekday: 'long' })}
+                  </p>
+                </div>
+              )}
+
+              {task.dueDate && (
+                <div>
+                  <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Due Date</p>
+                  <p className="text-sm font-medium text-gray-900">{format(new Date(task.dueDate), 'dd/MM/yyyy')}</p>
+                  <p className="text-xs text-gray-500 mt-0.5">
+                    {dueDateInfo?.dayName}
+                    {timeStats?.isOverdue && <span className="text-red-600 font-semibold ml-2">• Overdue</span>}
+                    {timeStats?.isDueToday && <span className="text-orange-600 font-semibold ml-2">• Today</span>}
+                  </p>
+                </div>
+              )}
+
+              {/* Assigned Users */}
+              {task.assignedUsers && task.assignedUsers.length > 0 && (
+                <div>
+                  <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Assigned To</p>
+                  <div className="flex flex-wrap gap-2">
+                    {task.assignedUsers.map((u) => (
+                      <span
+                        key={u.id}
+                        className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-blue-100 text-blue-800 transition-all duration-200 hover:bg-blue-200 hover:scale-105"
+                      >
+                        {u.name}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Creator */}
+              {task.creator && (
+                <div>
+                  <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Created By</p>
+                  <p className="text-sm font-medium text-gray-900">{task.creator.name}</p>
+                  {task.creator.email && (
+                    <p className="text-xs text-gray-500 mt-0.5">{task.creator.email}</p>
+                  )}
+                </div>
+              )}
+
+              {/* Created At */}
+              <div>
+                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Created At</p>
+                <p className="text-sm font-medium text-gray-900">
+                  {format(new Date(task.createdAt), 'dd/MM/yyyy HH:mm')}
+                </p>
+              </div>
+            </div>
           </div>
         </div>
       </div>

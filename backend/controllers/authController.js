@@ -1,5 +1,18 @@
 const jwt = require('jsonwebtoken');
 const { User } = require('../models');
+
+// Lấy danh sách users cho tất cả user đã đăng nhập (để assign vào task)
+exports.getAllUsers = async (req, res) => {
+  try {
+    const users = await User.findAll({
+      attributes: { exclude: ['password'] },
+      order: [['name', 'ASC']],
+    });
+    res.json(users);
+  } catch (error) {
+    res.status(500).json({ message: 'Lỗi lấy danh sách người dùng', error: error.message });
+  }
+};
 const { validationResult } = require('express-validator');
 
 const generateToken = (id) => {
