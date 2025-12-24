@@ -8,6 +8,9 @@ const {
   deleteTask,
   updateChecklist,
   getTaskStats,
+  createSubTask,
+  updateSubTask,
+  deleteSubTask,
 } = require('../controllers/taskController');
 const { protect } = require('../middleware/auth');
 
@@ -21,7 +24,16 @@ router.put('/:id', updateTask);
 router.delete('/:id', deleteTask);
 router.put('/:taskId/checklists/:checklistId', updateChecklist);
 
+// Sub-tasks routes
+router.post('/checklists/:checklistId/sub-tasks', createSubTask);
+router.put('/sub-tasks/:subTaskId', updateSubTask);
+router.delete('/sub-tasks/:subTaskId', deleteSubTask);
+
 module.exports = router;
+
+
+
+
 
 
 

@@ -1,39 +1,38 @@
 const { DataTypes } = require('sequelize');
 const sequelize = require('../config/database');
 
-const Task = sequelize.define('Task', {
+const SubTask = sequelize.define('SubTask', {
   id: {
     type: DataTypes.INTEGER,
     primaryKey: true,
     autoIncrement: true,
   },
+  checklistId: {
+    type: DataTypes.INTEGER,
+    field: 'checklist_id',
+    allowNull: false,
+  },
   title: {
     type: DataTypes.STRING,
     allowNull: false,
   },
-  description: {
-    type: DataTypes.TEXT,
-  },
-  priority: {
-    type: DataTypes.ENUM('low', 'medium', 'high'),
-    defaultValue: 'medium',
+  isCompleted: {
+    type: DataTypes.BOOLEAN,
+    defaultValue: false,
+    field: 'is_completed',
   },
   status: {
-    type: DataTypes.ENUM('todo', 'in_progress', 'completed'),
+    type: DataTypes.STRING,
     defaultValue: 'todo',
-  },
-  startDate: {
-    type: DataTypes.DATE,
-    field: 'start_date',
-  },
-  dueDate: {
-    type: DataTypes.DATE,
-    field: 'due_date',
+    allowNull: false,
+    validate: {
+      isIn: [['todo', 'in_progress', 'completed']],
+    },
   },
   createdBy: {
     type: DataTypes.INTEGER,
     field: 'created_by',
-    allowNull: false,
+    allowNull: true,
   },
   createdAt: {
     type: DataTypes.DATE,
@@ -44,16 +43,8 @@ const Task = sequelize.define('Task', {
     field: 'updated_at',
   },
 }, {
-  tableName: 'tasks',
+  tableName: 'sub_tasks',
 });
 
-module.exports = Task;
-
-
-
-
-
-
-
-
+module.exports = SubTask;
 

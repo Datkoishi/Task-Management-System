@@ -99,6 +99,20 @@ const Tasks = () => {
 
   return (
     <div className="space-y-6">
+      {/* Header with Back Button */}
+      <div className="flex items-center justify-between">
+        <Link
+          to="/dashboard"
+          className="inline-flex items-center space-x-2 text-gray-600 hover:text-gray-900 transition-colors p-2 hover:bg-gray-100 rounded-lg"
+          title="Quay lại Dashboard"
+        >
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+          </svg>
+          <span className="font-medium">Quay lại Dashboard</span>
+        </Link>
+      </div>
+
       {/* Action Buttons */}
       <div className="flex flex-wrap gap-2 justify-end">
         {tasks.length > 0 && (

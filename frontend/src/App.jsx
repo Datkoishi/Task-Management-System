@@ -6,6 +6,8 @@ import Register from './pages/Register';
 import Dashboard from './pages/Dashboard';
 import Tasks from './pages/Tasks';
 import TaskDetail from './pages/TaskDetail';
+import ChecklistGroupsDashboard from './pages/ChecklistGroupsDashboard';
+import ChecklistGroupDetail from './pages/ChecklistGroupDetail';
 import AdminDashboard from './pages/AdminDashboard';
 import Layout from './components/Layout';
 
@@ -67,6 +69,26 @@ function AppRoutes() {
         }
       />
       <Route
+        path="/tasks/:taskId/checklist-groups"
+        element={
+          <PrivateRoute>
+            <Layout>
+              <ChecklistGroupsDashboard />
+            </Layout>
+          </PrivateRoute>
+        }
+      />
+      <Route
+        path="/tasks/:taskId/checklist-groups/:groupId"
+        element={
+          <PrivateRoute>
+            <Layout>
+              <ChecklistGroupDetail />
+            </Layout>
+          </PrivateRoute>
+        }
+      />
+      <Route
         path="/admin"
         element={
           <AdminRoute>
@@ -92,6 +114,10 @@ function App() {
 }
 
 export default App;
+
+
+
+
 
 
 

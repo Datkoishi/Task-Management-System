@@ -3,6 +3,7 @@ const User = require('./User');
 const Task = require('./Task');
 const Checklist = require('./Checklist');
 const ChecklistGroup = require('./ChecklistGroup');
+const SubTask = require('./SubTask');
 const TaskAssignment = require('./TaskAssignment');
 const Attachment = require('./Attachment');
 const Team = require('./Team');
@@ -22,6 +23,11 @@ Task.hasMany(Checklist, { foreignKey: 'taskId', as: 'checklists', onDelete: 'CAS
 Checklist.belongsTo(Task, { foreignKey: 'taskId', as: 'task' });
 Checklist.belongsTo(User, { foreignKey: 'assignedTo', as: 'assignedUser' });
 User.hasMany(Checklist, { foreignKey: 'assignedTo', as: 'assignedChecklists' });
+
+Checklist.hasMany(SubTask, { foreignKey: 'checklistId', as: 'subTasks', onDelete: 'CASCADE' });
+SubTask.belongsTo(Checklist, { foreignKey: 'checklistId', as: 'checklist' });
+SubTask.belongsTo(User, { foreignKey: 'createdBy', as: 'creator' });
+User.hasMany(SubTask, { foreignKey: 'createdBy', as: 'createdSubTasks' });
 
 Task.belongsToMany(User, {
   through: TaskAssignment,
@@ -62,6 +68,7 @@ module.exports = {
   Task,
   Checklist,
   ChecklistGroup,
+  SubTask,
   TaskAssignment,
   Attachment,
   Team,

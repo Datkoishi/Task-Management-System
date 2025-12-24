@@ -4,17 +4,20 @@ import Header from './Header';
 
 const Layout = ({ children }) => {
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Sidebar - Fixed */}
+    <div className="min-h-screen bg-gray-50 flex">
+      {/* Sidebar - Fixed Left */}
       <Sidebar />
 
-      {/* Header - Fixed */}
-      <Header />
+      {/* Main Content Area - Flexible */}
+      <div className="flex-1 flex flex-col ml-64">
+        {/* Header - Fixed Top */}
+        <Header />
 
-      {/* Main Content - Offset by sidebar width and header height */}
-      <main className="ml-64 pt-16 min-h-screen bg-gray-50 p-6">
-        {children}
-      </main>
+        {/* Main Content - Scrollable */}
+        <main className="flex-1 overflow-auto pt-16 bg-gray-50">
+          {children}
+        </main>
+      </div>
     </div>
   );
 };

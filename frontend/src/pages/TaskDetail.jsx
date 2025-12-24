@@ -18,8 +18,8 @@ const TaskDetail = () => {
     status: 'todo',
     startDate: '',
     dueDate: '',
-        checklistGroups: [{ title: '', assignedTo: null, items: [{ title: '', status: 'todo', isCompleted: false, assignedTo: null }] }],
-        checklists: [{ title: '', status: 'todo', isCompleted: false, assignedTo: null }], // Backward compatible
+        checklistGroups: [{ title: '', assignedToIds: [], items: [{ title: '', status: 'todo', isCompleted: false, assignedToIds: [] }] }],
+        checklists: [{ title: '', status: 'todo', isCompleted: false, assignedToIds: [] }], // Backward compatible
         assignedUserIds: [],
         teamIds: [],
         attachments: [],
@@ -79,20 +79,20 @@ const TaskDetail = () => {
             checklistGroups: taskData.checklistGroups && taskData.checklistGroups.length > 0
           ? taskData.checklistGroups.map((g) => ({
               title: g.title,
-              assignedTo: g.assignedTo || null,
+              assignedToIds: g.assignedTo ? [g.assignedTo] : [],
               items: g.checklists ? g.checklists.map((c) => ({
                 title: c.title,
                 status: c.status || (c.isCompleted ? 'completed' : 'todo'),
                 isCompleted: c.isCompleted,
-                assignedTo: c.assignedTo || null
+                assignedToIds: c.assignedTo ? [c.assignedTo] : []
               })) : []
             }))
-          : [{ title: '', assignedTo: null, items: [{ title: '', isCompleted: false, assignedTo: null }] }],
+          : [{ title: '', assignedToIds: [], items: [{ title: '', isCompleted: false, assignedToIds: [] }] }],
         checklists: taskData.checklists && taskData.checklists.length > 0
           ? taskData.checklists.map((c) => ({ 
               title: c.title, 
               isCompleted: c.isCompleted,
-              assignedTo: c.assignedTo || null
+              assignedToIds: c.assignedTo ? [c.assignedTo] : []
             }))
           : [{ title: '', isCompleted: false, assignedTo: null }],
         assignedUserIds: taskData.assignedUsers ? taskData.assignedUsers.map((u) => u.id) : [],
@@ -119,8 +119,13 @@ const TaskDetail = () => {
           .filter((g) => g.title.trim() !== '')
           .map((g) => ({
             title: g.title,
-            assignedTo: g.assignedTo || null,
-            items: g.items.filter((item) => item.title.trim() !== ''),
+            assignedTo: g.assignedToIds && g.assignedToIds.length > 0 ? g.assignedToIds[0] : null,
+            items: g.items.filter((item) => item.title.trim() !== '').map((item) => ({
+              title: item.title,
+              status: item.status || 'todo',
+              isCompleted: item.isCompleted || false,
+              assignedTo: item.assignedToIds && item.assignedToIds.length > 0 ? item.assignedToIds[0] : null,
+            })),
           }))
           .filter((g) => g.items.length > 0),
         checklists: formData.checklists.filter((c) => c.title.trim() !== ''),
@@ -140,8 +145,8 @@ const TaskDetail = () => {
             status: 'todo',
             startDate: '',
             dueDate: '',
-            checklistGroups: [{ title: '', assignedTo: null, items: [{ title: '', status: 'todo', isCompleted: false, assignedTo: null }] }],
-            checklists: [{ title: '', status: 'todo', isCompleted: false, assignedTo: null }],
+            checklistGroups: [{ title: '', assignedToIds: [], items: [{ title: '', status: 'todo', isCompleted: false, assignedToIds: [] }] }],
+            checklists: [{ title: '', status: 'todo', isCompleted: false, assignedToIds: [] }],
             assignedUserIds: [],
             teamIds: [],
             attachments: [],
@@ -175,6 +180,49 @@ const TaskDetail = () => {
     } catch (error) {
       console.error('Error updating checklist:', error);
       alert('Error updating checklist: ' + (error.response?.data?.message || error.message));
+    }
+  };
+
+  const [newSubTaskTitle, setNewSubTaskTitle] = useState({});
+
+  const handleCreateSubTask = async (checklistId, title) => {
+    if (!title || !title.trim()) {
+      alert('Vui lòng nhập tên sub-task');
+      return;
+    }
+    try {
+      await api.post(`/tasks/checklists/${checklistId}/sub-tasks`, { 
+        title: title.trim(),
+        status: 'todo'
+      });
+      setNewSubTaskTitle({ ...newSubTaskTitle, [checklistId]: '' });
+      fetchTask();
+    } catch (error) {
+      console.error('Error creating sub-task:', error);
+      alert('Error creating sub-task: ' + (error.response?.data?.message || error.message));
+    }
+  };
+
+  const handleUpdateSubTask = async (subTaskId, status) => {
+    try {
+      await api.put(`/tasks/sub-tasks/${subTaskId}`, { status });
+      fetchTask();
+    } catch (error) {
+      console.error('Error updating sub-task:', error);
+      alert('Error updating sub-task: ' + (error.response?.data?.message || error.message));
+    }
+  };
+
+  const handleDeleteSubTask = async (subTaskId) => {
+    if (!window.confirm('Bạn có chắc chắn muốn xóa sub-task này?')) {
+      return;
+    }
+    try {
+      await api.delete(`/tasks/sub-tasks/${subTaskId}`);
+      fetchTask();
+    } catch (error) {
+      console.error('Error deleting sub-task:', error);
+      alert('Error deleting sub-task: ' + (error.response?.data?.message || error.message));
     }
   };
 
@@ -286,7 +334,19 @@ const TaskDetail = () => {
 
   if (loading) {
     return (
-      <div className="max-w-4xl mx-auto">
+      <div className="max-w-4xl mx-auto space-y-6">
+        <div className="flex items-center">
+          <Link
+            to="/tasks"
+            className="inline-flex items-center space-x-2 text-gray-600 hover:text-gray-900 transition-colors p-2 hover:bg-gray-100 rounded-lg"
+            title="Quay lại danh sách tasks"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+            </svg>
+            <span className="font-medium">Quay lại</span>
+          </Link>
+        </div>
         <div className="bg-white shadow-lg rounded-xl p-12">
           <div className="flex flex-col items-center justify-center space-y-4">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
@@ -299,7 +359,19 @@ const TaskDetail = () => {
 
   if (!editing && !task) {
     return (
-      <div className="max-w-4xl mx-auto">
+      <div className="max-w-4xl mx-auto space-y-6">
+        <div className="flex items-center">
+          <Link
+            to="/tasks"
+            className="inline-flex items-center space-x-2 text-gray-600 hover:text-gray-900 transition-colors p-2 hover:bg-gray-100 rounded-lg"
+            title="Quay lại danh sách tasks"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+            </svg>
+            <span className="font-medium">Quay lại</span>
+          </Link>
+        </div>
         <div className="bg-white shadow-lg rounded-xl p-12">
           <div className="flex flex-col items-center justify-center space-y-4 text-center">
             <svg className="w-16 h-16 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -326,13 +398,14 @@ const TaskDetail = () => {
       <div className="max-w-4xl mx-auto space-y-6">
         <div className="flex items-center justify-between">
           <Link 
-            to="/tasks" 
-            className="text-blue-600 hover:text-blue-800 flex items-center space-x-2 text-sm font-medium transition-colors"
+            to={id === 'new' ? "/tasks" : `/tasks/${id}`}
+            className="inline-flex items-center space-x-2 text-gray-600 hover:text-gray-900 transition-colors p-2 hover:bg-gray-100 rounded-lg font-medium"
+            title={id === 'new' ? "Quay lại danh sách tasks" : "Hủy chỉnh sửa"}
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
             </svg>
-            <span>Back to List</span>
+            <span>{id === 'new' ? 'Quay lại' : 'Hủy'}</span>
           </Link>
           {id === 'new' && (
             <div className="flex items-center space-x-4">
@@ -589,30 +662,55 @@ const TaskDetail = () => {
                       placeholder="Checklist group name"
                       className="flex-1 border border-gray-300 rounded-lg px-4 py-2.5 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
                     />
-                    <select
-                      value={group.assignedTo || ''}
-                      onChange={(e) => {
+                    <div className="relative min-w-[200px]">
+                      <div className="border border-gray-300 rounded-lg px-3 py-2.5 text-sm bg-white cursor-pointer hover:border-blue-500 transition-colors" onClick={() => {
                         const newGroups = [...formData.checklistGroups];
-                        newGroups[groupIndex].assignedTo = e.target.value ? parseInt(e.target.value) : null;
+                        newGroups[groupIndex].showAssigneeDropdown = !newGroups[groupIndex].showAssigneeDropdown;
                         setFormData({ ...formData, checklistGroups: newGroups });
-                      }}
-                      className="border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors min-w-[180px]"
-                    >
-                      <option value="">Select group assignee</option>
-                      {(id === 'new' || formData.assignedUserIds.length > 0) 
-                        ? (id === 'new' 
-                            ? users.map((u) => (
-                                <option key={u.id} value={u.id}>{u.name}</option>
-                              ))
-                            : users.filter(u => formData.assignedUserIds.includes(u.id)).map((u) => (
-                                <option key={u.id} value={u.id}>{u.name}</option>
-                              ))
-                          )
-                        : task?.assignedUsers?.map((u) => (
-                            <option key={u.id} value={u.id}>{u.name}</option>
-                          ))
-                      }
-                    </select>
+                      }}>
+                        <div className="flex items-center justify-between">
+                          <span className="text-gray-700">
+                            {group.assignedToIds && group.assignedToIds.length > 0 
+                              ? `${group.assignedToIds.length} người được chọn`
+                              : 'Chọn người được gán'}
+                          </span>
+                          <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                          </svg>
+                        </div>
+                      </div>
+                      {group.showAssigneeDropdown && (
+                        <div className="absolute z-10 mt-1 w-full bg-white border border-gray-300 rounded-lg shadow-lg max-h-48 overflow-y-auto">
+                          <div className="p-2 space-y-1">
+                            {((id === 'new' || formData.assignedUserIds.length > 0) 
+                              ? (id === 'new' ? users : users.filter(u => formData.assignedUserIds.includes(u.id)))
+                              : (task?.assignedUsers || [])
+                            ).map((u) => (
+                              <label key={u.id} className="flex items-center space-x-2 p-2 hover:bg-gray-50 rounded cursor-pointer">
+                                <input
+                                  type="checkbox"
+                                  checked={group.assignedToIds?.includes(u.id) || false}
+                                  onChange={(e) => {
+                                    const newGroups = [...formData.checklistGroups];
+                                    if (!newGroups[groupIndex].assignedToIds) {
+                                      newGroups[groupIndex].assignedToIds = [];
+                                    }
+                                    if (e.target.checked) {
+                                      newGroups[groupIndex].assignedToIds = [...newGroups[groupIndex].assignedToIds, u.id];
+                                    } else {
+                                      newGroups[groupIndex].assignedToIds = newGroups[groupIndex].assignedToIds.filter(id => id !== u.id);
+                                    }
+                                    setFormData({ ...formData, checklistGroups: newGroups });
+                                  }}
+                                  className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                                />
+                                <span className="text-sm text-gray-700">{u.name}</span>
+                              </label>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
                     {formData.checklistGroups.length > 1 && (
                       <button
                         type="button"
@@ -654,30 +752,59 @@ const TaskDetail = () => {
                           <option value="in_progress">In Progress</option>
                           <option value="completed">Completed</option>
                         </select>
-                        <select
-                          value={item.assignedTo || ''}
-                          onChange={(e) => {
+                        <div className="relative min-w-[200px]">
+                          <div className="border border-gray-300 rounded-lg px-3 py-2.5 text-sm bg-white cursor-pointer hover:border-blue-500 transition-colors" onClick={() => {
                             const newGroups = [...formData.checklistGroups];
-                            newGroups[groupIndex].items[itemIndex].assignedTo = e.target.value ? parseInt(e.target.value) : null;
+                            if (!newGroups[groupIndex].items[itemIndex].showAssigneeDropdown) {
+                              newGroups[groupIndex].items[itemIndex].showAssigneeDropdown = true;
+                            } else {
+                              newGroups[groupIndex].items[itemIndex].showAssigneeDropdown = false;
+                            }
                             setFormData({ ...formData, checklistGroups: newGroups });
-                          }}
-                          className="border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors min-w-[180px]"
-                        >
-                          <option value="">Select assignee</option>
-                          {(id === 'new' || formData.assignedUserIds.length > 0) 
-                            ? (id === 'new' 
-                                ? users.map((u) => (
-                                    <option key={u.id} value={u.id}>{u.name}</option>
-                                  ))
-                                : users.filter(u => formData.assignedUserIds.includes(u.id)).map((u) => (
-                                    <option key={u.id} value={u.id}>{u.name}</option>
-                                  ))
-                              )
-                            : task?.assignedUsers?.map((u) => (
-                                <option key={u.id} value={u.id}>{u.name}</option>
-                              ))
-                          }
-                        </select>
+                          }}>
+                            <div className="flex items-center justify-between">
+                              <span className="text-gray-700">
+                                {item.assignedToIds && item.assignedToIds.length > 0 
+                                  ? `${item.assignedToIds.length} người được chọn`
+                                  : 'Chọn người được gán'}
+                              </span>
+                              <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                              </svg>
+                            </div>
+                          </div>
+                          {item.showAssigneeDropdown && (
+                            <div className="absolute z-10 mt-1 w-full bg-white border border-gray-300 rounded-lg shadow-lg max-h-48 overflow-y-auto">
+                              <div className="p-2 space-y-1">
+                                {((id === 'new' || formData.assignedUserIds.length > 0) 
+                                  ? (id === 'new' ? users : users.filter(u => formData.assignedUserIds.includes(u.id)))
+                                  : (task?.assignedUsers || [])
+                                ).map((u) => (
+                                  <label key={u.id} className="flex items-center space-x-2 p-2 hover:bg-gray-50 rounded cursor-pointer">
+                                    <input
+                                      type="checkbox"
+                                      checked={item.assignedToIds?.includes(u.id) || false}
+                                      onChange={(e) => {
+                                        const newGroups = [...formData.checklistGroups];
+                                        if (!newGroups[groupIndex].items[itemIndex].assignedToIds) {
+                                          newGroups[groupIndex].items[itemIndex].assignedToIds = [];
+                                        }
+                                        if (e.target.checked) {
+                                          newGroups[groupIndex].items[itemIndex].assignedToIds = [...newGroups[groupIndex].items[itemIndex].assignedToIds, u.id];
+                                        } else {
+                                          newGroups[groupIndex].items[itemIndex].assignedToIds = newGroups[groupIndex].items[itemIndex].assignedToIds.filter(id => id !== u.id);
+                                        }
+                                        setFormData({ ...formData, checklistGroups: newGroups });
+                                      }}
+                                      className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                                    />
+                                    <span className="text-sm text-gray-700">{u.name}</span>
+                                  </label>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                        </div>
                         {group.items.length > 1 && (
                     <button
                       type="button"
@@ -882,15 +1009,16 @@ const TaskDetail = () => {
       <div className="bg-gradient-to-r from-purple-600 to-blue-600 rounded-xl p-8 text-white shadow-lg transform transition-all duration-300 hover:shadow-xl">
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center">
           <div className="mb-4 md:mb-0 flex-1">
-            <div className="flex items-center space-x-3 mb-2">
+            <div className="flex items-center space-x-3 mb-3">
               <Link 
                 to="/tasks" 
-                className="text-white hover:text-purple-100 flex items-center space-x-2 text-sm font-medium transition-all duration-200 hover:translate-x-[-4px]"
+                className="inline-flex items-center space-x-2 text-white hover:text-white transition-colors font-semibold"
+                title="Quay lại danh sách tasks"
               >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
                 </svg>
-                <span>Back</span>
+                <span>Quay lại</span>
               </Link>
             </div>
             <h1 className="text-3xl font-bold mb-2">{task.title}</h1>
@@ -1268,6 +1396,15 @@ const TaskDetail = () => {
                 <>
                   <div className="px-6 py-4 border-b border-gray-200 flex justify-between items-center">
                     <h3 className="text-lg font-semibold text-gray-900">Checklist Groups</h3>
+                    <Link
+                      to={`/tasks/${id}/checklist-groups`}
+                      className="inline-flex items-center space-x-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium transition-all duration-200 transform hover:scale-105 hover:shadow-md"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                      </svg>
+                      <span>View Dashboard</span>
+                    </Link>
                   </div>
                   <div className="p-6 space-y-4">
                     {task.checklistGroups.map((group) => {
@@ -1313,43 +1450,128 @@ const TaskDetail = () => {
                                 };
                                 
                                 return (
-                            <div 
-                              key={checklist.id} 
-                              className={`flex items-center space-x-3 p-2 rounded-lg transition-all duration-200 ${
-                                currentStatus === 'completed' ? 'bg-gray-50' : 'bg-white hover:bg-gray-50 hover:shadow-sm'
-                              }`}
-                            >
-                                    <select
-                                      value={currentStatus}
-                                      onChange={(e) => {
-                                        if (canToggle) {
-                                          handleChecklistStatusChange(checklist.id, e.target.value);
-                                        }
-                                      }}
-                                      disabled={!canToggle}
-                                className={`text-xs font-medium px-2 py-1 rounded border transition-all duration-200 ${
-                                  getStatusColor(currentStatus)
-                                } ${canToggle ? 'cursor-pointer hover:scale-105 hover:shadow-sm' : 'cursor-not-allowed opacity-50'}`}
-                                      title={!canToggle ? 'Only assigned user can update' : ''}
+                                  <div key={checklist.id} className="space-y-2">
+                                    <div 
+                                      className={`flex items-center space-x-3 p-2 rounded-lg transition-all duration-200 ${
+                                        currentStatus === 'completed' ? 'bg-gray-50' : 'bg-white hover:bg-gray-50 hover:shadow-sm'
+                                      }`}
                                     >
-                                      <option value="todo">Not Started</option>
-                                      <option value="in_progress">In Progress</option>
-                                      <option value="completed">Completed</option>
-                                    </select>
-                                    <div className="flex-1 flex items-center justify-between">
-                                      <label
-                                        className={`text-sm ${
-                                          currentStatus === 'completed' ? 'line-through text-gray-500' : 'text-gray-900'
-                                        }`}
+                                      <select
+                                        value={currentStatus}
+                                        onChange={(e) => {
+                                          if (canToggle) {
+                                            handleChecklistStatusChange(checklist.id, e.target.value);
+                                          }
+                                        }}
+                                        disabled={!canToggle}
+                                        className={`text-xs font-medium px-2 py-1 rounded border transition-all duration-200 ${
+                                          getStatusColor(currentStatus)
+                                        } ${canToggle ? 'cursor-pointer hover:scale-105 hover:shadow-sm' : 'cursor-not-allowed opacity-50'}`}
+                                        title={!canToggle ? 'Only assigned user can update' : ''}
                                       >
-                                        {checklist.title}
-                                      </label>
-                                      {checklist.assignedUser && (
-                                        <span className="ml-3 inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                                          {checklist.assignedUser.name}
-                                        </span>
-                                      )}
+                                        <option value="todo">Not Started</option>
+                                        <option value="in_progress">In Progress</option>
+                                        <option value="completed">Completed</option>
+                                      </select>
+                                      <div className="flex-1 flex items-center justify-between">
+                                        <label
+                                          className={`text-sm ${
+                                            currentStatus === 'completed' ? 'line-through text-gray-500' : 'text-gray-900'
+                                          }`}
+                                        >
+                                          {checklist.title}
+                                        </label>
+                                        {checklist.assignedUser && (
+                                          <span className="ml-3 inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                                            {checklist.assignedUser.name}
+                                          </span>
+                                        )}
+                                      </div>
                                     </div>
+                                    
+                                    {/* Sub-tasks section - chỉ hiện cho assigned user hoặc admin */}
+                                    {isAssignedToCurrentUser && (
+                                      <div className="ml-8 mt-3 space-y-3 border-l-3 border-indigo-400 pl-4 bg-indigo-50/30 rounded-r-lg py-3">
+                                        {checklist.subTasks && checklist.subTasks.length > 0 && (
+                                          <div className="flex items-center space-x-2 mb-2">
+                                            <svg className="w-4 h-4 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
+                                            </svg>
+                                            <span className="text-xs text-indigo-600 bg-indigo-100 px-2 py-0.5 rounded-full">
+                                              {checklist.subTasks.length}
+                                            </span>
+                                          </div>
+                                        )}
+                                        
+                                        {/* Hiển thị sub-tasks */}
+                                        {checklist.subTasks && checklist.subTasks.length > 0 && (
+                                          <div className="space-y-2">
+                                            {checklist.subTasks.map((subTask) => {
+                                              const subTaskStatus = subTask.status || (subTask.isCompleted ? 'completed' : 'todo');
+                                              return (
+                                                <div key={subTask.id} className="flex items-center space-x-2 p-2.5 bg-white rounded-lg border border-indigo-200 shadow-sm hover:shadow-md transition-shadow">
+                                                  <select
+                                                    value={subTaskStatus}
+                                                    onChange={(e) => handleUpdateSubTask(subTask.id, e.target.value)}
+                                                    className={`px-2.5 py-1 rounded-md border text-xs font-medium cursor-pointer transition-colors ${
+                                                      subTaskStatus === 'completed' 
+                                                        ? 'bg-emerald-100 text-emerald-700 border-emerald-300 hover:bg-emerald-200'
+                                                        : subTaskStatus === 'in_progress'
+                                                        ? 'bg-amber-100 text-amber-700 border-amber-300 hover:bg-amber-200'
+                                                        : 'bg-slate-100 text-slate-700 border-slate-300 hover:bg-slate-200'
+                                                    }`}
+                                                  >
+                                                    <option value="todo">Chưa bắt đầu</option>
+                                                    <option value="in_progress">Đang làm</option>
+                                                    <option value="completed">Hoàn thành</option>
+                                                  </select>
+                                                  <span className={`flex-1 text-sm font-medium ${
+                                                    subTaskStatus === 'completed' ? 'line-through text-gray-400' : 'text-gray-800'
+                                                  }`}>
+                                                    {subTask.title}
+                                                  </span>
+                                                  <button
+                                                    onClick={() => handleDeleteSubTask(subTask.id)}
+                                                    className="text-red-500 hover:text-red-700 hover:bg-red-50 p-1.5 rounded transition-colors"
+                                                    title="Xóa sub-task"
+                                                  >
+                                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                                    </svg>
+                                                  </button>
+                                                </div>
+                                              );
+                                            })}
+                                          </div>
+                                        )}
+                                        
+                                        {/* Form tạo sub-task mới */}
+                                        <div className="flex items-center space-x-2 pt-1">
+                                          <input
+                                            type="text"
+                                            value={newSubTaskTitle[checklist.id] || ''}
+                                            onChange={(e) => setNewSubTaskTitle({ ...newSubTaskTitle, [checklist.id]: e.target.value })}
+                                            onKeyPress={(e) => {
+                                              if (e.key === 'Enter') {
+                                                e.preventDefault();
+                                                handleCreateSubTask(checklist.id, newSubTaskTitle[checklist.id]);
+                                              }
+                                            }}
+                                            placeholder="Nhập tên sub-task mới..."
+                                            className="flex-1 border border-indigo-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-white"
+                                          />
+                                          <button
+                                            onClick={() => handleCreateSubTask(checklist.id, newSubTaskTitle[checklist.id])}
+                                            className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors shadow-sm hover:shadow-md flex items-center space-x-1"
+                                          >
+                                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                                            </svg>
+                                            <span>Thêm</span>
+                                          </button>
+                                        </div>
+                                      </div>
+                                    )}
                                   </div>
                                 );
                               })}
@@ -1386,46 +1608,131 @@ const TaskDetail = () => {
                       };
                       
                       return (
-                        <div 
-                          key={checklist.id} 
-                          className={`flex items-center space-x-3 p-3 rounded-lg transition-all duration-200 ${
-                            currentStatus === 'completed' ? 'bg-gray-50' : 'bg-white hover:bg-gray-50 hover:shadow-sm'
-                          }`}
-                        >
-                          <select
-                            value={currentStatus}
-                            onChange={(e) => {
-                              if (canToggle) {
-                                handleChecklistStatusChange(checklist.id, e.target.value);
-                              }
-                            }}
-                            disabled={!canToggle}
-                            className={`text-xs font-medium px-3 py-1.5 rounded border transition-all duration-200 ${
-                              getStatusColor(currentStatus)
-                            } ${canToggle ? 'cursor-pointer hover:scale-105 hover:shadow-sm' : 'cursor-not-allowed opacity-50'}`}
-                            title={!canToggle ? 'Only assigned user can update' : ''}
+                        <div key={checklist.id} className="space-y-2">
+                          <div 
+                            className={`flex items-center space-x-3 p-3 rounded-lg transition-all duration-200 ${
+                              currentStatus === 'completed' ? 'bg-gray-50' : 'bg-white hover:bg-gray-50 hover:shadow-sm'
+                            }`}
                           >
-                            <option value="todo">Not Started</option>
-                            <option value="in_progress">In Progress</option>
-                            <option value="completed">Completed</option>
-                          </select>
-                          <div className="flex-1 flex items-center justify-between">
-                            <label
-                              className={`text-sm font-medium ${
-                                currentStatus === 'completed' ? 'line-through text-gray-500' : 'text-gray-900'
-                              }`}
+                            <select
+                              value={currentStatus}
+                              onChange={(e) => {
+                                if (canToggle) {
+                                  handleChecklistStatusChange(checklist.id, e.target.value);
+                                }
+                              }}
+                              disabled={!canToggle}
+                              className={`text-xs font-medium px-3 py-1.5 rounded border transition-all duration-200 ${
+                                getStatusColor(currentStatus)
+                              } ${canToggle ? 'cursor-pointer hover:scale-105 hover:shadow-sm' : 'cursor-not-allowed opacity-50'}`}
+                              title={!canToggle ? 'Only assigned user can update' : ''}
                             >
-                              {checklist.title}
-                            </label>
-                            {checklist.assignedUser && (
-                              <span className="ml-3 inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                                <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                                </svg>
-                                {checklist.assignedUser.name}
-                              </span>
-                            )}
+                              <option value="todo">Not Started</option>
+                              <option value="in_progress">In Progress</option>
+                              <option value="completed">Completed</option>
+                            </select>
+                            <div className="flex-1 flex items-center justify-between">
+                              <label
+                                className={`text-sm font-medium ${
+                                  currentStatus === 'completed' ? 'line-through text-gray-500' : 'text-gray-900'
+                                }`}
+                              >
+                                {checklist.title}
+                              </label>
+                              {checklist.assignedUser && (
+                                <span className="ml-3 inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                                  <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                                  </svg>
+                                  {checklist.assignedUser.name}
+                                </span>
+                              )}
+                            </div>
                           </div>
+                          
+                          {/* Sub-tasks section - chỉ hiện cho assigned user hoặc admin */}
+                          {isAssignedToCurrentUser && (
+                            <div className="ml-8 mt-3 space-y-3 border-l-3 border-indigo-400 pl-4 bg-indigo-50/30 rounded-r-lg py-3">
+                              {checklist.subTasks && checklist.subTasks.length > 0 && (
+                                <div className="flex items-center space-x-2 mb-2">
+                                  <svg className="w-4 h-4 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
+                                  </svg>
+                                  <span className="text-xs text-indigo-600 bg-indigo-100 px-2 py-0.5 rounded-full">
+                                    {checklist.subTasks.length}
+                                  </span>
+                                </div>
+                              )}
+                              
+                              {/* Hiển thị sub-tasks */}
+                              {checklist.subTasks && checklist.subTasks.length > 0 && (
+                                <div className="space-y-2">
+                                  {checklist.subTasks.map((subTask) => {
+                                    const subTaskStatus = subTask.status || (subTask.isCompleted ? 'completed' : 'todo');
+                                    return (
+                                      <div key={subTask.id} className="flex items-center space-x-2 p-2.5 bg-white rounded-lg border border-indigo-200 shadow-sm hover:shadow-md transition-shadow">
+                                        <select
+                                          value={subTaskStatus}
+                                          onChange={(e) => handleUpdateSubTask(subTask.id, e.target.value)}
+                                          className={`px-2.5 py-1 rounded-md border text-xs font-medium cursor-pointer transition-colors ${
+                                            subTaskStatus === 'completed' 
+                                              ? 'bg-emerald-100 text-emerald-700 border-emerald-300 hover:bg-emerald-200'
+                                              : subTaskStatus === 'in_progress'
+                                              ? 'bg-amber-100 text-amber-700 border-amber-300 hover:bg-amber-200'
+                                              : 'bg-slate-100 text-slate-700 border-slate-300 hover:bg-slate-200'
+                                          }`}
+                                        >
+                                          <option value="todo">Chưa bắt đầu</option>
+                                          <option value="in_progress">Đang làm</option>
+                                          <option value="completed">Hoàn thành</option>
+                                        </select>
+                                        <span className={`flex-1 text-sm font-medium ${
+                                          subTaskStatus === 'completed' ? 'line-through text-gray-400' : 'text-gray-800'
+                                        }`}>
+                                          {subTask.title}
+                                        </span>
+                                        <button
+                                          onClick={() => handleDeleteSubTask(subTask.id)}
+                                          className="text-red-500 hover:text-red-700 hover:bg-red-50 p-1.5 rounded transition-colors"
+                                          title="Xóa sub-task"
+                                        >
+                                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                          </svg>
+                                        </button>
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+                              )}
+                              
+                              {/* Form tạo sub-task mới */}
+                              <div className="flex items-center space-x-2 pt-1">
+                                <input
+                                  type="text"
+                                  value={newSubTaskTitle[checklist.id] || ''}
+                                  onChange={(e) => setNewSubTaskTitle({ ...newSubTaskTitle, [checklist.id]: e.target.value })}
+                                  onKeyPress={(e) => {
+                                    if (e.key === 'Enter') {
+                                      e.preventDefault();
+                                      handleCreateSubTask(checklist.id, newSubTaskTitle[checklist.id]);
+                                    }
+                                  }}
+                                  placeholder="Nhập tên sub-task mới..."
+                                  className="flex-1 border border-indigo-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-white"
+                                />
+                                <button
+                                  onClick={() => handleCreateSubTask(checklist.id, newSubTaskTitle[checklist.id])}
+                                  className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors shadow-sm hover:shadow-md flex items-center space-x-1"
+                                >
+                                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                                  </svg>
+                                  <span>Thêm</span>
+                                </button>
+                              </div>
+                            </div>
+                          )}
                         </div>
                       );
                     })}

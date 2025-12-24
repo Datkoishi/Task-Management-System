@@ -1,4 +1,4 @@
-const { Task, Checklist, ChecklistGroup, TaskAssignment, Attachment, User, TeamMember } = require('../models');
+const { Task, Checklist, ChecklistGroup, SubTask, TaskAssignment, Attachment, User, TeamMember } = require('../models');
 const { Op } = require('sequelize');
 
 // Hàm cập nhật trạng thái task dựa trên checklist
@@ -84,9 +84,16 @@ exports.getAllTasks = async (req, res) => {
       include: [
         { model: User, as: 'creator', attributes: ['id', 'name', 'email'] },
         { 
-          model: Checklist, 
-          as: 'checklists',
-          include: [{ model: User, as: 'assignedUser', attributes: ['id', 'name', 'email'] }]
+          model: Checklist,
+              as: 'checklists',
+              include: [
+                { model: User, as: 'assignedUser', attributes: ['id', 'name', 'email'] },
+                {
+                  model: SubTask,
+                  as: 'subTasks',
+                  include: [{ model: User, as: 'creator', attributes: ['id', 'name', 'email'] }]
+                }
+              ]
         },
         { model: Attachment, as: 'attachments' },
         {
@@ -118,16 +125,30 @@ exports.getTaskById = async (req, res) => {
             {
               model: Checklist,
               as: 'checklists',
-              include: [{ model: User, as: 'assignedUser', attributes: ['id', 'name', 'email'] }]
+              include: [
+                { model: User, as: 'assignedUser', attributes: ['id', 'name', 'email'] },
+                {
+                  model: SubTask,
+                  as: 'subTasks',
+                  include: [{ model: User, as: 'creator', attributes: ['id', 'name', 'email'] }]
+                }
+              ]
             }
           ]
         },
-        { 
-          model: Checklist, 
+        {
+          model: Checklist,
           as: 'checklists',
           where: { groupId: null },
           required: false,
-          include: [{ model: User, as: 'assignedUser', attributes: ['id', 'name', 'email'] }]
+          include: [
+            { model: User, as: 'assignedUser', attributes: ['id', 'name', 'email'] },
+            {
+              model: SubTask,
+              as: 'subTasks',
+              include: [{ model: User, as: 'creator', attributes: ['id', 'name', 'email'] }]
+            }
+          ]
         },
         { model: Attachment, as: 'attachments' },
         {
@@ -262,16 +283,30 @@ exports.createTask = async (req, res) => {
             {
               model: Checklist,
               as: 'checklists',
-              include: [{ model: User, as: 'assignedUser', attributes: ['id', 'name', 'email'] }]
+              include: [
+                { model: User, as: 'assignedUser', attributes: ['id', 'name', 'email'] },
+                {
+                  model: SubTask,
+                  as: 'subTasks',
+                  include: [{ model: User, as: 'creator', attributes: ['id', 'name', 'email'] }]
+                }
+              ]
             }
           ]
         },
-        { 
-          model: Checklist, 
+        {
+          model: Checklist,
           as: 'checklists',
           where: { groupId: null },
           required: false,
-          include: [{ model: User, as: 'assignedUser', attributes: ['id', 'name', 'email'] }]
+          include: [
+            { model: User, as: 'assignedUser', attributes: ['id', 'name', 'email'] },
+            {
+              model: SubTask,
+              as: 'subTasks',
+              include: [{ model: User, as: 'creator', attributes: ['id', 'name', 'email'] }]
+            }
+          ]
         },
         { model: Attachment, as: 'attachments' },
         {
@@ -336,8 +371,15 @@ exports.updateTask = async (req, res) => {
                 { model: User, as: 'assignedUser', attributes: ['id', 'name', 'email'] },
                 {
                   model: Checklist,
-                  as: 'checklists',
-                  include: [{ model: User, as: 'assignedUser', attributes: ['id', 'name', 'email'] }]
+              as: 'checklists',
+              include: [
+                { model: User, as: 'assignedUser', attributes: ['id', 'name', 'email'] },
+                {
+                  model: SubTask,
+                  as: 'subTasks',
+                  include: [{ model: User, as: 'creator', attributes: ['id', 'name', 'email'] }]
+                }
+              ]
                 }
               ]
             },
@@ -474,9 +516,16 @@ exports.updateTask = async (req, res) => {
       include: [
         { model: User, as: 'creator', attributes: ['id', 'name', 'email'] },
         { 
-          model: Checklist, 
-          as: 'checklists',
-          include: [{ model: User, as: 'assignedUser', attributes: ['id', 'name', 'email'] }]
+          model: Checklist,
+              as: 'checklists',
+              include: [
+                { model: User, as: 'assignedUser', attributes: ['id', 'name', 'email'] },
+                {
+                  model: SubTask,
+                  as: 'subTasks',
+                  include: [{ model: User, as: 'creator', attributes: ['id', 'name', 'email'] }]
+                }
+              ]
         },
         { model: Attachment, as: 'attachments' },
         {
@@ -565,16 +614,30 @@ exports.updateChecklist = async (req, res) => {
             {
               model: Checklist,
               as: 'checklists',
-              include: [{ model: User, as: 'assignedUser', attributes: ['id', 'name', 'email'] }]
+              include: [
+                { model: User, as: 'assignedUser', attributes: ['id', 'name', 'email'] },
+                {
+                  model: SubTask,
+                  as: 'subTasks',
+                  include: [{ model: User, as: 'creator', attributes: ['id', 'name', 'email'] }]
+                }
+              ]
             }
           ]
         },
-        { 
-          model: Checklist, 
+        {
+          model: Checklist,
           as: 'checklists',
           where: { groupId: null },
           required: false,
-          include: [{ model: User, as: 'assignedUser', attributes: ['id', 'name', 'email'] }]
+          include: [
+            { model: User, as: 'assignedUser', attributes: ['id', 'name', 'email'] },
+            {
+              model: SubTask,
+              as: 'subTasks',
+              include: [{ model: User, as: 'creator', attributes: ['id', 'name', 'email'] }]
+            }
+          ]
         },
         { model: Attachment, as: 'attachments' },
         {
@@ -634,6 +697,123 @@ exports.getTaskStats = async (req, res) => {
     });
   } catch (error) {
     res.status(500).json({ message: 'Lỗi lấy thống kê', error: error.message });
+  }
+};
+
+// Sub-tasks APIs
+exports.createSubTask = async (req, res) => {
+  try {
+    const { checklistId } = req.params;
+    const { title, status } = req.body;
+
+    // Kiểm tra checklist có tồn tại không
+    const checklist = await Checklist.findByPk(checklistId);
+    if (!checklist) {
+      return res.status(404).json({ message: 'Không tìm thấy checklist' });
+    }
+
+    // Kiểm tra quyền: chỉ assigned user hoặc admin mới có thể tạo sub-task
+    if (req.user.role !== 'admin') {
+      if (checklist.assignedTo && checklist.assignedTo !== req.user.id) {
+        return res.status(403).json({ 
+          message: 'Chỉ người được gán checklist này mới có thể tạo sub-task' 
+        });
+      }
+    }
+
+    const subTask = await SubTask.create({
+      checklistId: checklist.id,
+      title,
+      status: status || 'todo',
+      isCompleted: status === 'completed' || false,
+      createdBy: req.user.id,
+    });
+
+    const createdSubTask = await SubTask.findByPk(subTask.id, {
+      include: [{ model: User, as: 'creator', attributes: ['id', 'name', 'email'] }],
+    });
+
+    res.status(201).json(createdSubTask);
+  } catch (error) {
+    res.status(500).json({ message: 'Lỗi tạo sub-task', error: error.message });
+  }
+};
+
+exports.updateSubTask = async (req, res) => {
+  try {
+    const { subTaskId } = req.params;
+    const { title, status, isCompleted } = req.body;
+
+    const subTask = await SubTask.findByPk(subTaskId, {
+      include: [{ model: Checklist, as: 'checklist' }],
+    });
+
+    if (!subTask) {
+      return res.status(404).json({ message: 'Không tìm thấy sub-task' });
+    }
+
+    // Kiểm tra quyền: chỉ creator, assigned user của checklist, hoặc admin
+    if (req.user.role !== 'admin') {
+      const isCreator = subTask.createdBy === req.user.id;
+      const isAssignedToChecklist = subTask.checklist.assignedTo === req.user.id;
+      
+      if (!isCreator && !isAssignedToChecklist) {
+        return res.status(403).json({ 
+          message: 'Bạn không có quyền chỉnh sửa sub-task này' 
+        });
+      }
+    }
+
+    const updateData = {};
+    if (title !== undefined) updateData.title = title;
+    if (status !== undefined) {
+      updateData.status = status;
+      updateData.isCompleted = status === 'completed';
+    } else if (isCompleted !== undefined) {
+      updateData.isCompleted = isCompleted;
+      updateData.status = isCompleted ? 'completed' : 'todo';
+    }
+
+    await subTask.update(updateData);
+
+    const updatedSubTask = await SubTask.findByPk(subTaskId, {
+      include: [{ model: User, as: 'creator', attributes: ['id', 'name', 'email'] }],
+    });
+
+    res.json(updatedSubTask);
+  } catch (error) {
+    res.status(500).json({ message: 'Lỗi cập nhật sub-task', error: error.message });
+  }
+};
+
+exports.deleteSubTask = async (req, res) => {
+  try {
+    const { subTaskId } = req.params;
+
+    const subTask = await SubTask.findByPk(subTaskId, {
+      include: [{ model: Checklist, as: 'checklist' }],
+    });
+
+    if (!subTask) {
+      return res.status(404).json({ message: 'Không tìm thấy sub-task' });
+    }
+
+    // Kiểm tra quyền: chỉ creator, assigned user của checklist, hoặc admin
+    if (req.user.role !== 'admin') {
+      const isCreator = subTask.createdBy === req.user.id;
+      const isAssignedToChecklist = subTask.checklist.assignedTo === req.user.id;
+      
+      if (!isCreator && !isAssignedToChecklist) {
+        return res.status(403).json({ 
+          message: 'Bạn không có quyền xóa sub-task này' 
+        });
+      }
+    }
+
+    await subTask.destroy();
+    res.json({ message: 'Xóa sub-task thành công' });
+  } catch (error) {
+    res.status(500).json({ message: 'Lỗi xóa sub-task', error: error.message });
   }
 };
 
